@@ -1,216 +1,316 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>義工報到系統 v2.0</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <style>
-    [v-cloak] { display: none; }
-    .card-active { border-left: 5px solid #10b981; }
-    .card-inactive { border-left: 5px solid #ef4444; }
-    .card-ignore { border-left: 5px solid #cbd5e1; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>義工報名與點名系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .loading-overlay {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(4px);
+        }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
 </head>
-<body class="bg-gray-50 text-gray-900">
-  <div id="app" v-cloak class="max-w-md mx-auto min-h-screen flex flex-col">
-    
-    <!-- Loading -->
-    <div v-if="loading" class="fixed inset-0 z-50 bg-white/90 flex flex-col items-center justify-center">
-      <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent animate-spin rounded-full mb-4"></div>
-      <div class="font-bold text-gray-600">{{ loadingText }}</div>
-    </div>
+<body class="bg-slate-50 min-h-screen">
 
-    <!-- Header -->
-    <header class="bg-blue-800 text-white p-4 shadow-lg sticky top-0 z-40">
-      <div class="flex justify-between items-center">
+<div id="app" class="max-w-md mx-auto p-4 pb-24">
+    <!-- 頂部標題與狀態 -->
+    <header class="flex justify-between items-center mb-6">
         <div>
-          <h1 class="font-bold text-lg">義工報到回報系統</h1>
-          <p class="text-[10px] opacity-70">UID 模式 | 一次報到未來生效</p>
+            <h1 class="text-2xl font-bold text-slate-800">義工管理系統</h1>
+            <p id="cacheStatus" class="text-xs text-slate-400">資料已從雲端同步</p>
         </div>
-        <input type="date" v-model="reportDate" @change="loadMembers" class="bg-blue-700 text-xs p-1 rounded border-none outline-none">
-      </div>
+        <button onclick="refreshData(true)" class="p-2 bg-white rounded-full shadow-sm hover:bg-blue-50 text-blue-600 transition-colors">
+            <i class="fa-solid fa-arrows-rotate"></i>
+        </button>
     </header>
 
-    <main class="p-4 space-y-4 pb-24">
-      <!-- Step 1: 選組 -->
-      <div v-if="step === 1" class="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-        <h2 class="text-xl font-bold">選擇回報範圍</h2>
-        <div>
-          <label class="text-xs text-gray-400">大組</label>
-          <select v-model="selectedBig" class="w-full p-3 bg-gray-50 border rounded-xl mt-1">
-            <option v-for="g in groups" :key="g.name" :value="g.name">{{ g.name }}</option>
-          </select>
+    <!-- 統計與搜尋中心 -->
+    <div class="bg-white rounded-2xl p-4 shadow-sm mb-6 border border-slate-100">
+        <div class="flex items-center gap-2 mb-3">
+            <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
+            <input type="text" id="searchInput" oninput="handleSearch()" placeholder="輸入關鍵字搜尋或統計..." 
+                   class="w-full outline-none text-slate-700 bg-transparent">
         </div>
-        <div v-if="selectedBig">
-          <label class="text-xs text-gray-400">小組</label>
-          <select v-model="selectedSmall" class="w-full p-3 bg-gray-50 border rounded-xl mt-1">
-            <option v-for="s in currentSubGroups" :key="s" :value="s">{{ s }}</option>
-          </select>
+        <div id="statsPreview" class="hidden mt-2 p-3 bg-blue-50 rounded-xl text-sm text-blue-800 border border-blue-100">
+            <!-- 統計結果會顯示在這裡 -->
         </div>
-        <button @click="loadMembers" :disabled="!selectedSmall" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold disabled:opacity-30">進入名單</button>
-      </div>
-
-      <!-- Step 2: 名單 -->
-      <div v-if="step === 2" class="space-y-3">
-        <div class="flex justify-between items-end px-1">
-          <button @click="step = 1" class="text-blue-600 text-sm font-bold flex items-center">
-            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"></path></svg> 返回
-          </button>
-          <div class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">
-            實到 {{ stats.arrived }} / 應到 {{ stats.expected }}
-          </div>
-        </div>
-
-        <div v-for="m in members" :key="m.uid" 
-             class="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center"
-             :class="m.isArrived ? 'card-active' : (m.isExpected ? 'card-inactive' : 'card-ignore')">
-          <div class="flex-1">
-            <div class="flex items-center gap-2">
-              <span class="font-bold text-lg">{{ m.name }}</span>
-              <button @click="openEdit(m)" class="text-gray-300 hover:text-blue-500">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-              </button>
-            </div>
-            <div class="text-[10px] text-gray-400">UID: {{ m.uid }} | {{ m.phone || '無電話' }}</div>
-            <div class="flex gap-2 mt-1">
-              <span v-if="m.details.lunch === '是'" class="bg-orange-100 text-orange-600 text-[9px] px-1 rounded">午</span>
-              <span v-if="m.details.dinner === '是'" class="bg-purple-100 text-purple-600 text-[9px] px-1 rounded">晚</span>
-              <span v-if="m.details.stay === '是'" class="bg-indigo-100 text-indigo-600 text-[9px] px-1 rounded">住</span>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2">
-            <button v-if="!m.isArrived" @click="toggleCheckIn(m, true)" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm">報到</button>
-            <button v-else @click="toggleCheckIn(m, false)" class="bg-white border-2 border-green-600 text-green-600 px-3 py-2 rounded-lg text-sm font-bold">已在場 (取消)</button>
-          </div>
-        </div>
-
-        <button @click="showTempModal = true" class="w-full border-2 border-dashed border-gray-300 text-gray-500 py-4 rounded-xl font-bold text-sm bg-white">＋ 臨時義工報到</button>
-      </div>
-    </main>
-
-    <!-- Edit Modal -->
-    <div v-if="editingMember" class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6">
-      <div class="bg-white w-full rounded-3xl p-6 space-y-4">
-        <h3 class="font-bold text-xl border-b pb-2">{{ editingMember.name }} - 詳情修改</h3>
-        <div class="grid grid-cols-3 gap-3">
-          <div v-for="key in ['lunch', 'dinner', 'stay']" :key="key" class="text-center">
-            <label class="text-xs text-gray-400 block mb-1">{{ key==='lunch'?'午餐':key==='dinner'?'晚餐':'住宿' }}</label>
-            <select v-model="editingMember.details[key]" class="w-full p-2 bg-gray-50 border rounded-lg text-sm">
-              <option value="是">是</option>
-              <option value="否">否</option>
-              <option value="無">無</option>
-            </select>
-          </div>
-        </div>
-        <div class="flex gap-2 pt-4">
-          <button @click="editingMember = null" class="flex-1 py-3 bg-gray-100 rounded-xl font-bold">取消</button>
-          <button @click="saveEdit" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold">儲存並刷新</button>
-        </div>
-      </div>
     </div>
 
-    <!-- Temp Modal -->
-    <div v-if="showTempModal" class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6">
-      <div class="bg-white w-full rounded-3xl p-6 space-y-4">
-        <h3 class="font-bold text-xl">臨時報名</h3>
-        <input v-model="tempForm.name" placeholder="姓名" class="w-full p-3 bg-gray-50 border rounded-xl">
-        <input v-model="tempForm.phone" placeholder="電話" class="w-full p-3 bg-gray-50 border rounded-xl">
-        <div class="flex gap-2">
-          <button @click="showTempModal = false" class="flex-1 py-3 bg-gray-100 rounded-xl font-bold">取消</button>
-          <button @click="handleTemp" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold">報到</button>
+    <!-- 名單列表 -->
+    <div id="volunteerList" class="space-y-3">
+        <!-- 由 JavaScript 動態生成 -->
+        <div class="py-10 text-center text-slate-400">
+            <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
+            <p>正在載入名單...</p>
         </div>
-      </div>
     </div>
-  </div>
+</div>
 
-  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-  <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbx5RwtQbE1kRran4GDXTh2M5ZLojNhzL-mAP32OO_Aa5-6ek4gHPYERFqjmVjJa9LH7/exec";
-    const LIFF_ID = "2008940815-C8JZBiJj";
+<!-- 編輯模態視窗 -->
+<div id="editModal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-4 loading-overlay">
+    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 fade-in border-t border-slate-100">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-bold text-slate-800" id="modalName">修改資料</h3>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+        
+        <div id="editFields" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            <!-- 動態生成 I 到 M 欄的編輯項 -->
+            <p class="text-sm text-slate-500 italic">正在讀取過往紀錄...</p>
+        </div>
 
-    const { createApp } = Vue;
-    createApp({
-      data() {
-        return {
-          loading: true, loadingText: '連線中...', step: 1,
-          groups: [], selectedBig: '', selectedSmall: '',
-          members: [], reportDate: new Date().toISOString().split('T')[0],
-          editingMember: null, showTempModal: false,
-          tempForm: { name: '', phone: '', gender: '未知' },
-          userId: '', userName: ''
+        <div class="mt-6 flex gap-3">
+            <button onclick="closeModal()" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">取消</button>
+            <button id="saveBtn" onclick="saveEdit()" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200">更新紀錄</button>
+        </div>
+    </div>
+</div>
+
+<!-- 吐司通知 -->
+<div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-800 text-white text-sm rounded-full opacity-0 transition-opacity pointer-events-none z-50">
+    已更新
+</div>
+
+<script>
+    // 配置區域 - 請確保與 Google Apps Script 端一致
+    const CONFIG = {
+        scriptUrl: '你的_GOOGLE_APPS_SCRIPT_URL', // 請替換成您的 Web App 網址
+        cacheKey: 'v_data_cache',
+        cacheTimeKey: 'v_data_timestamp',
+        cacheTTL: 1000 * 60 * 30, // 30 分鐘快取
+        columns: ['I', 'J', 'K', 'L', 'M'],
+        colLabels: ['報名狀態', '午餐需求', '交通方式', '分組任務', '備註事項']
+    };
+
+    let volunteers = [];
+    let currentEditRow = null;
+
+    // 初始化
+    window.onload = () => {
+        loadData();
+    };
+
+    // 1. 快取功能實作
+    async function loadData() {
+        const cachedData = localStorage.getItem(CONFIG.cacheKey);
+        const lastSync = localStorage.getItem(CONFIG.cacheTimeKey);
+        const now = new Date().getTime();
+
+        if (cachedData && lastSync && (now - lastSync < CONFIG.cacheTTL)) {
+            volunteers = JSON.parse(cachedData);
+            document.getElementById('cacheStatus').innerText = '模式：快速讀取 (快取中)';
+            renderList(volunteers);
+        } else {
+            refreshData();
         }
-      },
-      computed: {
-        currentSubGroups() {
-          const g = this.groups.find(x => x.name === this.selectedBig);
-          return g ? g.subGroups : [];
-        },
-        stats() {
-          return {
-            expected: this.members.filter(m => m.isExpected).length,
-            arrived: this.members.filter(m => m.isArrived).length
-          }
-        }
-      },
-      async mounted() {
+    }
+
+    async function refreshData(force = false) {
+        document.getElementById('cacheStatus').innerText = '正在同步雲端資料...';
         try {
-          await liff.init({ liffId: LIFF_ID });
-          if (!liff.isLoggedIn()) { liff.login(); return; }
-          const p = await liff.getProfile();
-          this.userId = p.userId; this.userName = p.displayName;
-          const res = await this.api('getInitialData');
-          this.groups = res.groups;
-          this.loading = false;
-        } catch (e) { alert("ERROR: " + e.message); }
-      },
-      methods: {
-        async api(action, payload = {}) {
-          const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action, payload }) });
-          return await res.json();
-        },
-        async loadMembers() {
-          this.loading = true;
-          this.loadingText = "抓取名單...";
-          const res = await this.api('getVolunteerList', {
-            bigGroup: this.selectedBig, smallGroup: this.selectedSmall, targetDate: this.reportDate
-          });
-          this.members = res.list;
-          this.step = 2;
-          this.loading = false;
-        },
-        async toggleCheckIn(m, status) {
-          this.loading = true;
-          if (status) {
-            await this.api('submitCheckIn', { uid: m.uid, name: m.name, date: this.reportDate, operator: this.userName });
-          } else {
-            if(!confirm("確定要取消此人的報到紀錄嗎？")) { this.loading = false; return; }
-            await this.api('cancelCheckIn', { uid: m.uid, date: this.reportDate });
-          }
-          await this.loadMembers();
-        },
-        openEdit(m) { this.editingMember = JSON.parse(JSON.stringify(m)); },
-        async saveEdit() {
-          this.loading = true;
-          await this.api('updateVolunteer', {
-            rowNum: this.editingMember.rowNum,
-            colIdx: this.editingMember.colIdx,
-            values: this.editingMember.details
-          });
-          this.editingMember = null;
-          await this.loadMembers();
-        },
-        async handleTemp() {
-          if(!this.tempForm.name) return;
-          this.loading = true;
-          await this.api('registerTemp', { ...this.tempForm, bigGroup: this.selectedBig, smallGroup: this.selectedSmall });
-          this.showTempModal = false;
-          await this.loadMembers();
+            // 注意：這裡假設後端會回傳整張表的 JSON
+            const response = await fetch(`${CONFIG.scriptUrl}?action=getVolunteers`);
+            const result = await response.json();
+            
+            volunteers = result.data;
+            localStorage.setItem(CONFIG.cacheKey, JSON.stringify(volunteers));
+            localStorage.setItem(CONFIG.cacheTimeKey, new Date().getTime().toString());
+            
+            document.getElementById('cacheStatus').innerText = '資料已同步';
+            renderList(volunteers);
+        } catch (e) {
+            showToast('同步失敗，請檢查網路');
+            if (!force) loadFromCacheOnly();
         }
-      }
-    }).mount('#app');
-  </script>
+    }
+
+    function renderList(data) {
+        const container = document.getElementById('volunteerList');
+        container.innerHTML = data.map((person, index) => `
+            <div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-slate-50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
+                        ${person.name[0]}
+                    </div>
+                    <div>
+                        <div class="font-bold text-slate-800">${person.name}</div>
+                        <div class="text-xs text-slate-400">${person.department || '一般組'}</div>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="openEditModal(${index})" class="p-2 text-slate-400 hover:text-blue-500 transition-colors">
+                        <i class="fa-solid fa-pen-to-square text-lg"></i>
+                    </button>
+                    <button onclick="toggleAttendance(${index})" id="check-${index}" 
+                            class="p-2 ${person.present ? 'text-green-500' : 'text-slate-200'} transition-colors">
+                        <i class="fa-solid fa-circle-check text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // 2. 編輯功能擴張 (I-M 欄)
+    function openEditModal(index) {
+        const person = volunteers[index];
+        currentEditRow = index;
+        document.getElementById('modalName').innerText = `${person.name} - 詳細資料`;
+        
+        const fieldsContainer = document.getElementById('editFields');
+        // 假設 person 物件包含 columnsI 到 columnsM 的屬性
+        // 在 Google Sheet 中，I 是 index 8
+        fieldsContainer.innerHTML = CONFIG.colLabels.map((label, i) => {
+            const colKey = `col_${CONFIG.columns[i]}`; // 對應後端回傳的 key
+            const val = person[colKey] || '';
+            return `
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">${label} (欄位 ${CONFIG.columns[i]})</label>
+                    <input type="text" id="input-${CONFIG.columns[i]}" value="${val}" 
+                           class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-400 transition-all text-slate-700">
+                </div>
+            `;
+        }).join('');
+
+        document.getElementById('editModal').classList.remove('hidden');
+    }
+
+    async function saveEdit() {
+        const btn = document.getElementById('saveBtn');
+        btn.disabled = true;
+        btn.innerText = '儲存中...';
+
+        const updates = {};
+        CONFIG.columns.forEach(col => {
+            updates[col] = document.getElementById(`input-${col}`).value;
+        });
+
+        try {
+            // 發送到 GAS 更新指定行數
+            const response = await fetch(CONFIG.scriptUrl, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'updateDetails',
+                    row: volunteers[currentEditRow].rowNumber,
+                    updates: updates
+                })
+            });
+            
+            // 更新本地快取
+            CONFIG.columns.forEach((col, i) => {
+                volunteers[currentEditRow][`col_${col}`] = updates[col];
+            });
+            localStorage.setItem(CONFIG.cacheKey, JSON.stringify(volunteers));
+            
+            showToast('更新成功');
+            closeModal();
+            renderList(volunteers);
+        } catch (e) {
+            showToast('儲存失敗');
+        } finally {
+            btn.disabled = false;
+            btn.innerText = '更新紀錄';
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('editModal').classList.add('hidden');
+    }
+
+    // 3. 統計功能與 Flex Message 邏輯
+    function handleSearch() {
+        const query = document.getElementById('searchInput').value.trim();
+        const preview = document.getElementById('statsPreview');
+        
+        if (!query) {
+            preview.classList.add('hidden');
+            renderList(volunteers);
+            return;
+        }
+
+        // 過濾列表
+        const filtered = volunteers.filter(p => p.name.includes(query) || (p.col_I && p.col_I.includes(query)));
+        renderList(filtered);
+
+        // 如果輸入的是「統計」關鍵字
+        if (query === '統計' || query === 'status') {
+            const total = volunteers.length;
+            const present = volunteers.filter(p => p.present).length;
+            const lunch = volunteers.filter(p => p.col_J === '是' || p.col_J === '素食').length;
+
+            preview.innerHTML = `
+                <div class="flex flex-col gap-1">
+                    <div class="font-bold mb-1">📊 本日活動統計摘要</div>
+                    <div class="flex justify-between"><span>總報名人數:</span> <b>${total} 人</b></div>
+                    <div class="flex justify-between"><span>已到場人數:</span> <b>${present} 人</b></div>
+                    <div class="flex justify-between"><span>用餐人數:</span> <b>${lunch} 人</b></div>
+                    <button onclick="copyFlexMessage()" class="mt-2 py-1 bg-white rounded-lg text-xs font-bold border border-blue-200">複製 LINE Flex 訊息</button>
+                </div>
+            `;
+            preview.classList.remove('hidden');
+        } else {
+            preview.classList.add('hidden');
+        }
+    }
+
+    // 生成並複製 Flex Message JSON (用於 LINE 機器人)
+    function copyFlexMessage() {
+        const total = volunteers.length;
+        const present = volunteers.filter(p => p.present).length;
+        
+        const flex = {
+            "type": "bubble",
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                    { "type": "text", "text": "義工活動報名統計", "weight": "bold", "size": "xl" },
+                    { "type": "separator", "margin": "md" },
+                    { "type": "box", "layout": "vertical", "margin": "lg", "spacing": "sm", "contents": [
+                        { "type": "box", "layout": "baseline", "spacing": "sm", "contents": [
+                            { "type": "text", "text": "總人數", "color": "#aaaaaa", "size": "sm", "flex": 1 },
+                            { "type": "text", "text": `${total} 人`, "wrap": true, "color": "#666666", "size": "sm", "flex": 5 }
+                        ]},
+                        { "type": "box", "layout": "baseline", "spacing": "sm", "contents": [
+                            { "type": "text", "text": "已到場", "color": "#aaaaaa", "size": "sm", "flex": 1 },
+                            { "type": "text", "text": `${present} 人`, "wrap": true, "color": "#666666", "size": "sm", "flex": 5 }
+                        ]}
+                    ]}
+                ]
+            }
+        };
+
+        const textArea = document.createElement("textarea");
+        textArea.value = JSON.stringify(flex);
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showToast('Flex Message 已複製到剪貼簿');
+    }
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.innerText = msg;
+        t.style.opacity = '1';
+        setTimeout(() => t.style.opacity = '0', 2000);
+    }
+
+    function toggleAttendance(index) {
+        volunteers[index].present = !volunteers[index].present;
+        localStorage.setItem(CONFIG.cacheKey, JSON.stringify(volunteers));
+        renderList(volunteers);
+        showToast(volunteers[index].present ? '已完成點名' : '已取消點名');
+        
+        // 這裡可以呼叫 GAS 更新到 Google Sheets 的 B 欄(假設是出席欄)
+    }
+
+</script>
 </body>
 </html>
