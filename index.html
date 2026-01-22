@@ -3,296 +3,234 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>義工報名與點名系統</title>
+    <title>義工報名管理</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .loading-overlay {
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(4px);
-        }
+        .loading-overlay { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(4px); }
         .fade-in { animation: fadeIn 0.3s ease-in; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen">
 
 <div id="app" class="max-w-md mx-auto p-4 pb-24">
-    <!-- 頂部標題與狀態 -->
     <header class="flex justify-between items-center mb-6">
         <div>
-            <h1 class="text-2xl font-bold text-slate-800">義工管理系統</h1>
-            <p id="cacheStatus" class="text-xs text-slate-400">正在初始化系統...</p>
+            <h1 class="text-2xl font-bold text-slate-800 tracking-tight">義工管理</h1>
+            <p id="cacheStatus" class="text-[10px] text-slate-400 font-mono">INITIALIZING...</p>
         </div>
-        <button onclick="refreshData(true)" class="p-2 bg-white rounded-full shadow-sm hover:bg-blue-50 text-blue-600 transition-colors">
+        <button onclick="refreshData(true)" class="p-2 bg-white rounded-full shadow-sm hover:shadow-md text-blue-600 transition-all active:scale-95">
             <i class="fa-solid fa-arrows-rotate"></i>
         </button>
     </header>
 
-    <!-- 名單列表 -->
+    <!-- 篩選器 -->
+    <div class="mb-6 grid grid-cols-2 gap-3">
+        <select id="groupSelect" onchange="updateSubAndFilter()" class="p-3 bg-white border border-slate-200 rounded-xl text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-100 transition-all">
+            <option value="全部大組">全部大組</option>
+        </select>
+        <select id="subGroupSelect" onchange="filterData()" class="p-3 bg-white border border-slate-200 rounded-xl text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-100 transition-all">
+            <option value="全部小組">全部小組</option>
+        </select>
+    </div>
+
+    <!-- 列表 -->
     <div id="volunteerList" class="space-y-3">
-        <div id="loadingPlaceholder" class="py-20 text-center text-slate-400">
-            <i class="fa-solid fa-spinner fa-spin text-3xl mb-4 text-blue-500"></i>
-            <p class="text-sm">正在從雲端載入名單...</p>
+        <div class="py-20 text-center">
+            <i class="fa-solid fa-circle-notch fa-spin text-3xl text-blue-500 mb-4"></i>
+            <p class="text-slate-400 text-sm">數據鏈路同步中...</p>
         </div>
     </div>
 </div>
 
-<!-- 編輯模態視窗 -->
+<!-- 編輯視窗 -->
 <div id="editModal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-4 loading-overlay">
-    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 fade-in border-t border-slate-100">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-xl font-bold text-slate-800" id="modalName">修改資料</h3>
-            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600">
-                <i class="fa-solid fa-xmark text-xl"></i>
+    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 fade-in border border-slate-100">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h3 class="text-xl font-bold text-slate-800" id="modalName">編輯</h3>
+                <p class="text-xs text-slate-400">更新將同步至雲端試算表</p>
+            </div>
+            <button onclick="closeModal()" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-400">
+                <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
         
-        <div id="editFields" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-            <!-- 動態生成 I 到 M 欄的編輯項 -->
-        </div>
+        <div id="editFields" class="space-y-4 max-h-[50vh] overflow-y-auto pr-2 no-scrollbar"></div>
 
-        <div class="mt-6 flex gap-3">
-            <button onclick="closeModal()" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">取消</button>
-            <button id="saveBtn" onclick="saveEdit()" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200">更新紀錄</button>
+        <div class="mt-8 flex gap-3">
+            <button onclick="closeModal()" class="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold active:bg-slate-200">取消</button>
+            <button id="saveBtn" onclick="saveEdit()" class="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 active:bg-blue-700">確認更新</button>
         </div>
     </div>
 </div>
 
-<!-- 吐司通知 -->
-<div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-800 text-white text-sm rounded-full opacity-0 transition-opacity pointer-events-none z-50">
-    已更新
+<div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-800/90 text-white text-sm rounded-full opacity-0 transition-opacity pointer-events-none z-50 backdrop-blur-sm">
+    OK
 </div>
 
 <script>
-    // 預先設定的參數
     const CONFIG = {
         scriptUrl: 'https://script.google.com/macros/s/AKfycbx5RwtQbE1kRran4GDXTh2M5ZLojNhzL-mAP32OO_Aa5-6ek4gHPYERFqjmVjJa9LH7/exec',
         liffId: '2008940815-C8JZBiJj',
-        cacheKey: 'v_data_cache',
-        cacheTimeKey: 'v_data_timestamp',
-        cacheTTL: 1000 * 60 * 30, // 30 分鐘
-        columns: ['I', 'J', 'K', 'L', 'M'],
-        colLabels: ['報名狀態', '午餐需求', '交通方式', '分組任務', '備註事項']
+        cacheKey: 'v_data_v3',
+        cacheTs: 'v_ts_v3',
+        ttl: 1800000, // 30 mins
+        cols: ['I', 'J', 'K', 'L', 'M'],
+        labels: ['報名狀態', '午餐需求', '交通方式', '分組任務', '備註事項']
     };
 
-    let volunteers = [];
-    let currentEditRow = null;
+    let allData = [];
+    let editingIndex = -1;
 
-    // 初始化系統
     window.onload = async () => {
         try {
             await liff.init({ liffId: CONFIG.liffId });
-            if (!liff.isLoggedIn()) {
-                // 如果是在 LINE 外部開啟，視情況是否強制登入
-                // liff.login(); 
-            }
-            loadData();
-        } catch (err) {
-            console.error('LIFF 初始化失敗', err);
-            loadData(); // 即使 LIFF 失敗也嘗試載入資料
+            document.getElementById('cacheStatus').innerText = 'LIFF READY';
+        } catch (e) {
+            document.getElementById('cacheStatus').innerText = 'BROWSER MODE';
         }
+        init();
     };
 
-    // 快取與資料讀取
-    async function loadData() {
-        const cachedData = localStorage.getItem(CONFIG.cacheKey);
-        const lastSync = localStorage.getItem(CONFIG.cacheTimeKey);
-        const now = new Date().getTime();
-
-        if (cachedData && lastSync && (now - lastSync < CONFIG.cacheTTL)) {
-            try {
-                volunteers = JSON.parse(cachedData);
-                document.getElementById('cacheStatus').innerText = '模式：快速讀取 (快取中)';
-                renderList(volunteers);
-            } catch (e) {
-                refreshData();
-            }
+    function init() {
+        const cached = localStorage.getItem(CONFIG.cacheKey);
+        const ts = localStorage.getItem(CONFIG.cacheTs);
+        if (cached && ts && (Date.now() - ts < CONFIG.ttl)) {
+            allData = JSON.parse(cached);
+            document.getElementById('cacheStatus').innerText = 'CACHE HITTED';
+            setupSelectors();
+            filterData();
         } else {
             refreshData();
         }
     }
 
     async function refreshData(force = false) {
-        const statusEl = document.getElementById('cacheStatus');
-        statusEl.innerText = '正在同步雲端資料...';
-        
+        const status = document.getElementById('cacheStatus');
+        status.innerText = 'FETCHING CLOUD...';
+        if(force) document.getElementById('volunteerList').innerHTML = '<div class="py-20 text-center"><i class="fa-solid fa-spinner fa-spin text-3xl text-blue-500"></i></div>';
+
         try {
-            // 使用 GET 請求獲取名單
-            const response = await fetch(`${CONFIG.scriptUrl}?action=getVolunteers`, {
-                method: 'GET'
-            });
-            
-            if (!response.ok) throw new Error('網路回應不正確');
-            
-            const result = await response.json();
-            
-            if (result.status === 'success') {
-                volunteers = result.data;
-                localStorage.setItem(CONFIG.cacheKey, JSON.stringify(volunteers));
-                localStorage.setItem(CONFIG.cacheTimeKey, new Date().getTime().toString());
-                
-                statusEl.innerText = '資料已同步';
-                renderList(volunteers);
+            const res = await fetch(`${CONFIG.scriptUrl}?action=getVolunteers&_=${Date.now()}`);
+            const json = await res.json();
+            if (json.status === 'success') {
+                allData = json.data;
+                localStorage.setItem(CONFIG.cacheKey, JSON.stringify(allData));
+                localStorage.setItem(CONFIG.cacheTs, Date.now().toString());
+                status.innerText = 'SYNC COMPLETE';
+                setupSelectors();
+                filterData();
             } else {
-                throw new Error(result.message || '資料獲取失敗');
+                throw new Error('API_ERROR');
             }
         } catch (e) {
-            console.error(e);
-            showToast('同步失敗，請檢查網路或 GAS 權限');
-            statusEl.innerText = '資料同步失敗';
-            
-            // 如果同步失敗但本地有舊資料，就先顯示舊資料
-            const cachedData = localStorage.getItem(CONFIG.cacheKey);
-            if (cachedData) {
-                volunteers = JSON.parse(cachedData);
-                renderList(volunteers);
-            } else {
-                document.getElementById('volunteerList').innerHTML = `
-                    <div class="py-10 text-center text-red-400">
-                        <i class="fa-solid fa-circle-exclamation text-3xl mb-2"></i>
-                        <p>無法載入名單</p>
-                        <button onclick="refreshData(true)" class="mt-4 text-blue-500 underline">再試一次</button>
-                    </div>
-                `;
-            }
+            status.innerText = 'SYNC FAILED';
+            showToast('雲端同步失敗');
         }
     }
 
-    function renderList(data) {
+    function setupSelectors() {
+        const gs = [...new Set(allData.map(v => v.mainGroup).filter(Boolean))];
+        const gSel = document.getElementById('groupSelect');
+        const oldG = gSel.value;
+        gSel.innerHTML = '<option value="全部大組">全部大組</option>' + gs.map(g => `<option value="${g}">${g}</option>`).join('');
+        if(gs.includes(oldG)) gSel.value = oldG;
+        updateSubAndFilter();
+    }
+
+    function updateSubAndFilter() {
+        const g = document.getElementById('groupSelect').value;
+        const sSel = document.getElementById('subGroupSelect');
+        const subs = g === '全部大組' ? [] : [...new Set(allData.filter(v => v.mainGroup === g).map(v => v.subGroup).filter(Boolean))];
+        sSel.innerHTML = '<option value="全部小組">全部小組</option>' + subs.map(s => `<option value="${s}">${s}</option>`).join('');
+        filterData();
+    }
+
+    function filterData() {
+        const g = document.getElementById('groupSelect').value;
+        const s = document.getElementById('subGroupSelect').value;
+        const filtered = allData.filter(v => (g === '全部大組' || v.mainGroup === g) && (s === '全部小組' || v.subGroup === s));
+        render(filtered);
+    }
+
+    function render(data) {
         const container = document.getElementById('volunteerList');
-        if (!data || data.length === 0) {
-            container.innerHTML = '<div class="py-10 text-center text-slate-400">目前沒有報名資料</div>';
+        if(!data.length) {
+            container.innerHTML = '<div class="py-20 text-center text-slate-300">查無數據</div>';
             return;
         }
-
-        container.innerHTML = data.map((person, index) => `
-            <div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-slate-50">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
-                        ${person.name ? person.name[0] : '?'}
+        container.innerHTML = data.map(v => {
+            const globalIdx = allData.findIndex(raw => raw.rowNumber === v.rowNumber);
+            return `
+            <div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-slate-100 fade-in">
+                <div class="flex items-center gap-4">
+                    <div class="w-11 h-11 bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-lg shadow-inner">
+                        ${v.name[0]}
                     </div>
                     <div>
-                        <div class="font-bold text-slate-800">${person.name || '未命名'}</div>
-                        <div class="text-xs text-slate-400">${person.group || '一般組'}</div>
+                        <div class="font-bold text-slate-800 text-base">${v.name}</div>
+                        <div class="text-[10px] text-slate-400 uppercase tracking-wider">${v.mainGroup || '--'} / ${v.subGroup || '--'}</div>
                     </div>
                 </div>
-                <div class="flex gap-2">
-                    <button onclick="openEditModal(${index})" class="p-2 text-slate-400 hover:text-blue-500 transition-colors">
-                        <i class="fa-solid fa-pen-to-square text-lg"></i>
-                    </button>
-                    <button onclick="toggleAttendance(${index})" id="check-${index}" 
-                            class="p-2 ${person.present ? 'text-green-500' : 'text-slate-200'} transition-colors">
-                        <i class="fa-solid fa-circle-check text-2xl"></i>
-                    </button>
+                <div class="flex gap-1">
+                    <button onclick="openModal(${globalIdx})" class="p-3 text-slate-300 hover:text-blue-500 transition-colors"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button onclick="check(${globalIdx})" class="p-3 ${v.present?'text-green-500':'text-slate-100'} transition-all"><i class="fa-solid fa-circle-check text-2xl"></i></button>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
     }
 
-    // 編輯功能 (I-M 欄)
-    function openEditModal(index) {
-        const person = volunteers[index];
-        currentEditRow = index;
-        document.getElementById('modalName').innerText = `${person.name} - 詳細資料`;
-        
-        const fieldsContainer = document.getElementById('editFields');
-        // 對應後端欄位，假設 JSON 中 key 為 col_I, col_J...
-        fieldsContainer.innerHTML = CONFIG.colLabels.map((label, i) => {
-            const colLetter = CONFIG.columns[i];
-            const val = person[`col_${colLetter}`] || '';
-            return `
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 mb-1">${label} (欄位 ${colLetter})</label>
-                    <input type="text" id="input-${colLetter}" value="${val}" 
-                           class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-400 transition-all text-slate-700">
-                </div>
-            `;
-        }).join('');
-
+    function openModal(idx) {
+        editingIndex = idx;
+        const v = allData[idx];
+        document.getElementById('modalName').innerText = v.name;
+        document.getElementById('editFields').innerHTML = CONFIG.cols.map((c, i) => `
+            <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">${CONFIG.labels[i]}</label>
+                <input type="text" id="in-${c}" value="${v['col_'+c] || ''}" class="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-400 text-slate-700 font-medium">
+            </div>`).join('');
         document.getElementById('editModal').classList.remove('hidden');
     }
 
     async function saveEdit() {
         const btn = document.getElementById('saveBtn');
-        const originalText = btn.innerText;
-        btn.disabled = true;
-        btn.innerText = '儲存中...';
-
-        const updates = {};
-        CONFIG.columns.forEach(col => {
-            updates[col] = document.getElementById(`input-${col}`).value;
-        });
+        btn.disabled = true; btn.innerText = 'SAVING...';
+        const v = allData[editingIndex];
+        const up = {};
+        CONFIG.cols.forEach(c => up[c] = document.getElementById('in-'+c).value);
 
         try {
-            const response = await fetch(CONFIG.scriptUrl, {
-                method: 'POST',
-                mode: 'no-cors', // GAS POST 限制通常需使用 no-cors 或特殊處理，但 no-cors 無法讀取回應內容
-                body: JSON.stringify({
-                    action: 'updateDetails',
-                    row: volunteers[currentEditRow].rowNumber,
-                    updates: updates
-                })
-            });
-            
-            // 由於 GAS no-cors 無法讀取 json，我們直接假設成功並更新本地狀態
-            // 如果您的 GAS 有處理 CORS，可以移除 no-cors
-            CONFIG.columns.forEach((col) => {
-                volunteers[currentEditRow][`col_${col}`] = updates[col];
-            });
-            localStorage.setItem(CONFIG.cacheKey, JSON.stringify(volunteers));
-            
-            showToast('更新指令已送出');
-            setTimeout(() => {
-                closeModal();
-                renderList(volunteers);
-            }, 500);
-        } catch (e) {
-            showToast('儲存發生錯誤');
-        } finally {
-            btn.disabled = false;
-            btn.innerText = originalText;
-        }
+            await fetch(CONFIG.scriptUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateDetails', row: v.rowNumber, updates: up })});
+            CONFIG.cols.forEach(c => v['col_'+c] = up[c]);
+            localStorage.setItem(CONFIG.cacheKey, JSON.stringify(allData));
+            showToast('修改已提交');
+            closeModal();
+            filterData();
+        } catch(e) { showToast('提交失敗'); }
+        finally { btn.disabled = false; btn.innerText = '確認更新'; }
     }
 
-    function closeModal() {
-        document.getElementById('editModal').classList.add('hidden');
+    function closeModal() { document.getElementById('editModal').classList.add('hidden'); }
+
+    function showToast(m) {
+        const t = document.getElementById('toast'); t.innerText = m; t.style.opacity = '1';
+        setTimeout(() => t.style.opacity = '0', 2000);
     }
 
-    function showToast(msg) {
-        const t = document.getElementById('toast');
-        t.innerText = msg;
-        t.style.opacity = '1';
-        setTimeout(() => t.style.opacity = '0', 2500);
-    }
-
-    async function toggleAttendance(index) {
-        const person = volunteers[index];
-        person.present = !person.present;
-        
-        // 更新本地 UI
-        renderList(volunteers);
-        localStorage.setItem(CONFIG.cacheKey, JSON.stringify(volunteers));
-        
-        showToast(person.present ? '已完成點名' : '已取消點名');
-
-        // 同步到 GAS (假設 B 欄是出席狀態)
+    async function check(idx) {
+        const v = allData[idx];
+        v.present = !v.present;
+        filterData();
+        localStorage.setItem(CONFIG.cacheKey, JSON.stringify(allData));
         try {
-            fetch(CONFIG.scriptUrl, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify({
-                    action: 'updateAttendance',
-                    row: person.rowNumber,
-                    present: person.present
-                })
-            });
-        } catch (e) {
-            console.error('點名同步失敗');
-        }
+            fetch(CONFIG.scriptUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateAttendance', row: v.rowNumber, present: v.present })});
+            showToast(v.present ? '簽到成功' : '已取消簽到');
+        } catch(e) {}
     }
-
 </script>
 </body>
 </html>
