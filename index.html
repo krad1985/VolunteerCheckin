@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>義工報名管理</title>
+    <title>義工管理系統 v4.5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -20,28 +20,33 @@
     <header class="flex justify-between items-center mb-6">
         <div>
             <h1 class="text-2xl font-bold text-slate-800 tracking-tight">義工管理</h1>
-            <p id="cacheStatus" class="text-[10px] text-slate-400 font-mono">INITIALIZING...</p>
+            <p id="cacheStatus" class="text-[10px] text-slate-400 font-mono italic">INITIALIZING</p>
         </div>
-        <button onclick="refreshData(true)" class="p-2 bg-white rounded-full shadow-sm hover:shadow-md text-blue-600 transition-all active:scale-95">
-            <i class="fa-solid fa-arrows-rotate"></i>
-        </button>
+        <div class="flex gap-2">
+            <select id="dateSelect" onchange="refreshData(true)" class="text-xs bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-sm outline-none focus:ring-1 focus:ring-blue-400">
+                <option value="">選擇日期...</option>
+            </select>
+            <button onclick="refreshData(true)" class="p-2 bg-white rounded-full shadow-sm text-blue-600 active:scale-95 transition-all">
+                <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
+        </div>
     </header>
 
     <!-- 篩選器 -->
     <div class="mb-6 grid grid-cols-2 gap-3">
-        <select id="groupSelect" onchange="updateSubAndFilter()" class="p-3 bg-white border border-slate-200 rounded-xl text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-100 transition-all">
+        <select id="groupSelect" onchange="updateSubAndFilter()" class="p-3 bg-white border border-slate-200 rounded-xl text-sm shadow-sm outline-none">
             <option value="全部大組">全部大組</option>
         </select>
-        <select id="subGroupSelect" onchange="filterData()" class="p-3 bg-white border border-slate-200 rounded-xl text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-100 transition-all">
+        <select id="subGroupSelect" onchange="filterData()" class="p-3 bg-white border border-slate-200 rounded-xl text-sm shadow-sm outline-none">
             <option value="全部小組">全部小組</option>
         </select>
     </div>
 
-    <!-- 列表 -->
+    <!-- 名單列表 -->
     <div id="volunteerList" class="space-y-3">
         <div class="py-20 text-center">
             <i class="fa-solid fa-circle-notch fa-spin text-3xl text-blue-500 mb-4"></i>
-            <p class="text-slate-400 text-sm">數據鏈路同步中...</p>
+            <p class="text-slate-400 text-sm">正在同步數據...</p>
         </div>
     </div>
 </div>
@@ -51,18 +56,20 @@
     <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 fade-in border border-slate-100">
         <div class="flex justify-between items-center mb-6">
             <div>
-                <h3 class="text-xl font-bold text-slate-800" id="modalName">編輯</h3>
-                <p class="text-xs text-slate-400">更新將同步至雲端試算表</p>
+                <h3 class="text-xl font-bold text-slate-800" id="modalName">編輯資料</h3>
+                <p class="text-xs text-slate-400">欄位與內容自動同步雲端</p>
             </div>
             <button onclick="closeModal()" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-400">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
         
-        <div id="editFields" class="space-y-4 max-h-[50vh] overflow-y-auto pr-2 no-scrollbar"></div>
+        <div id="editFields" class="space-y-5 max-h-[50vh] overflow-y-auto pr-2 no-scrollbar">
+            <!-- 動態生成內容 -->
+        </div>
 
         <div class="mt-8 flex gap-3">
-            <button onclick="closeModal()" class="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold active:bg-slate-200">取消</button>
+            <button onclick="closeModal()" class="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold">取消</button>
             <button id="saveBtn" onclick="saveEdit()" class="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 active:bg-blue-700">確認更新</button>
         </div>
     </div>
@@ -76,60 +83,66 @@
     const CONFIG = {
         scriptUrl: 'https://script.google.com/macros/s/AKfycbx5RwtQbE1kRran4GDXTh2M5ZLojNhzL-mAP32OO_Aa5-6ek4gHPYERFqjmVjJa9LH7/exec',
         liffId: '2008940815-C8JZBiJj',
-        cacheKey: 'v_data_v3',
-        cacheTs: 'v_ts_v3',
-        ttl: 1800000, // 30 mins
-        cols: ['I', 'J', 'K', 'L', 'M'],
-        labels: ['報名狀態', '午餐需求', '交通方式', '分組任務', '備註事項']
+        cacheKey: 'v_data_v45',
+        cols: ['I', 'J', 'K', 'L', 'M']
     };
 
     let allData = [];
+    let dynamicLabels = {};
     let editingIndex = -1;
 
     window.onload = async () => {
-        try {
-            await liff.init({ liffId: CONFIG.liffId });
-            document.getElementById('cacheStatus').innerText = 'LIFF READY';
-        } catch (e) {
-            document.getElementById('cacheStatus').innerText = 'BROWSER MODE';
-        }
-        init();
+        try { await liff.init({ liffId: CONFIG.liffId }); } catch (e) {}
+        initDates();
+        loadCache();
     };
 
-    function init() {
+    async function initDates() {
+        try {
+            const res = await fetch(`${CONFIG.scriptUrl}?action=getDates`);
+            const json = await res.json();
+            const dateSel = document.getElementById('dateSelect');
+            dateSel.innerHTML = json.dates.map(d => `<option value="${d}">${d}</option>`).join('');
+            if (json.dates.length > 0) refreshData();
+        } catch (e) { 
+            document.getElementById('cacheStatus').innerText = 'DATES_ERROR';
+        }
+    }
+
+    function loadCache() {
         const cached = localStorage.getItem(CONFIG.cacheKey);
-        const ts = localStorage.getItem(CONFIG.cacheTs);
-        if (cached && ts && (Date.now() - ts < CONFIG.ttl)) {
-            allData = JSON.parse(cached);
-            document.getElementById('cacheStatus').innerText = 'CACHE HITTED';
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            allData = parsed.data;
+            dynamicLabels = parsed.labels;
+            document.getElementById('cacheStatus').innerText = 'CACHE_HITTED';
             setupSelectors();
             filterData();
-        } else {
-            refreshData();
         }
     }
 
     async function refreshData(force = false) {
+        const date = document.getElementById('dateSelect').value;
+        if (!date) return;
+        
         const status = document.getElementById('cacheStatus');
-        status.innerText = 'FETCHING CLOUD...';
+        status.innerText = 'SYNCING...';
         if(force) document.getElementById('volunteerList').innerHTML = '<div class="py-20 text-center"><i class="fa-solid fa-spinner fa-spin text-3xl text-blue-500"></i></div>';
 
         try {
-            const res = await fetch(`${CONFIG.scriptUrl}?action=getVolunteers&_=${Date.now()}`);
+            const res = await fetch(`${CONFIG.scriptUrl}?action=getVolunteers&date=${date}&_=${Date.now()}`);
             const json = await res.json();
             if (json.status === 'success') {
                 allData = json.data;
-                localStorage.setItem(CONFIG.cacheKey, JSON.stringify(allData));
-                localStorage.setItem(CONFIG.cacheTs, Date.now().toString());
-                status.innerText = 'SYNC COMPLETE';
+                dynamicLabels = json.labels;
+                localStorage.setItem(CONFIG.cacheKey, JSON.stringify({data: allData, labels: dynamicLabels}));
+                status.innerText = 'SYNC_COMPLETE';
                 setupSelectors();
                 filterData();
-            } else {
-                throw new Error('API_ERROR');
             }
         } catch (e) {
-            status.innerText = 'SYNC FAILED';
-            showToast('雲端同步失敗');
+            status.innerText = 'OFFLINE';
+            showToast('同步失敗');
         }
     }
 
@@ -164,11 +177,11 @@
             return;
         }
         container.innerHTML = data.map(v => {
-            const globalIdx = allData.findIndex(raw => raw.rowNumber === v.rowNumber);
+            const gIdx = allData.findIndex(raw => raw.rowNumber === v.rowNumber);
             return `
             <div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-slate-100 fade-in">
                 <div class="flex items-center gap-4">
-                    <div class="w-11 h-11 bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-lg shadow-inner">
+                    <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center font-bold text-lg">
                         ${v.name[0]}
                     </div>
                     <div>
@@ -177,8 +190,8 @@
                     </div>
                 </div>
                 <div class="flex gap-1">
-                    <button onclick="openModal(${globalIdx})" class="p-3 text-slate-300 hover:text-blue-500 transition-colors"><i class="fa-solid fa-pen-to-square"></i></button>
-                    <button onclick="check(${globalIdx})" class="p-3 ${v.present?'text-green-500':'text-slate-100'} transition-all"><i class="fa-solid fa-circle-check text-2xl"></i></button>
+                    <button onclick="openModal(${gIdx})" class="p-3 text-slate-300 hover:text-blue-500 transition-colors"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button onclick="check(${gIdx})" class="p-3 ${v.present?'text-green-500':'text-slate-100'} transition-all"><i class="fa-solid fa-circle-check text-2xl"></i></button>
                 </div>
             </div>`;
         }).join('');
@@ -188,17 +201,47 @@
         editingIndex = idx;
         const v = allData[idx];
         document.getElementById('modalName').innerText = v.name;
-        document.getElementById('editFields').innerHTML = CONFIG.cols.map((c, i) => `
-            <div>
-                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">${CONFIG.labels[i]}</label>
-                <input type="text" id="in-${c}" value="${v['col_'+c] || ''}" class="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-400 text-slate-700 font-medium">
-            </div>`).join('');
+        
+        const fieldsHtml = CONFIG.cols.map((c) => {
+            const val = v['col_'+c] || '';
+            const label = dynamicLabels[c] || c;
+            const isBinary = (val === '是' || val === '否' || val === '');
+            
+            return `
+            <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">${label}</label>
+                ${isBinary ? `
+                <div class="flex gap-2">
+                    <button onclick="setBin('${c}', '是')" id="btn-${c}-是" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${val==='是'?'bg-blue-600 text-white shadow-md':'bg-white text-slate-400 border border-slate-200'}">是</button>
+                    <button onclick="setBin('${c}', '否')" id="btn-${c}-否" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${val==='否'?'bg-blue-600 text-white shadow-md':'bg-white text-slate-400 border border-slate-200'}">否</button>
+                    <input type="hidden" id="in-${c}" value="${val}">
+                </div>
+                ` : `
+                <input type="text" id="in-${c}" value="${val}" class="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none text-slate-700 font-medium">
+                `}
+            </div>`;
+        }).join('');
+        
+        document.getElementById('editFields').innerHTML = fieldsHtml;
         document.getElementById('editModal').classList.remove('hidden');
+    }
+
+    function setBin(col, val) {
+        document.getElementById('in-'+col).value = val;
+        const btnYes = document.getElementById(`btn-${col}-是`);
+        const btnNo = document.getElementById(`btn-${col}-否`);
+        if (val === '是') {
+            btnYes.className = "flex-1 py-3 rounded-xl text-sm font-bold bg-blue-600 text-white shadow-md transition-all";
+            btnNo.className = "flex-1 py-3 rounded-xl text-sm font-bold bg-white text-slate-400 border border-slate-200 transition-all";
+        } else {
+            btnYes.className = "flex-1 py-3 rounded-xl text-sm font-bold bg-white text-slate-400 border border-slate-200 transition-all";
+            btnNo.className = "flex-1 py-3 rounded-xl text-sm font-bold bg-blue-600 text-white shadow-md transition-all";
+        }
     }
 
     async function saveEdit() {
         const btn = document.getElementById('saveBtn');
-        btn.disabled = true; btn.innerText = 'SAVING...';
+        btn.disabled = true; btn.innerText = 'SYNCING...';
         const v = allData[editingIndex];
         const up = {};
         CONFIG.cols.forEach(c => up[c] = document.getElementById('in-'+c).value);
@@ -206,30 +249,23 @@
         try {
             await fetch(CONFIG.scriptUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateDetails', row: v.rowNumber, updates: up })});
             CONFIG.cols.forEach(c => v['col_'+c] = up[c]);
-            localStorage.setItem(CONFIG.cacheKey, JSON.stringify(allData));
-            showToast('修改已提交');
+            localStorage.setItem(CONFIG.cacheKey, JSON.stringify({data: allData, labels: dynamicLabels}));
+            showToast('已同步至雲端');
             closeModal();
             filterData();
-        } catch(e) { showToast('提交失敗'); }
+        } catch(e) { showToast('失敗'); }
         finally { btn.disabled = false; btn.innerText = '確認更新'; }
     }
 
     function closeModal() { document.getElementById('editModal').classList.add('hidden'); }
-
-    function showToast(m) {
-        const t = document.getElementById('toast'); t.innerText = m; t.style.opacity = '1';
-        setTimeout(() => t.style.opacity = '0', 2000);
-    }
+    function showToast(m) { const t = document.getElementById('toast'); t.innerText = m; t.style.opacity = '1'; setTimeout(() => t.style.opacity = '0', 2000); }
 
     async function check(idx) {
         const v = allData[idx];
         v.present = !v.present;
         filterData();
-        localStorage.setItem(CONFIG.cacheKey, JSON.stringify(allData));
-        try {
-            fetch(CONFIG.scriptUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateAttendance', row: v.rowNumber, present: v.present })});
-            showToast(v.present ? '簽到成功' : '已取消簽到');
-        } catch(e) {}
+        localStorage.setItem(CONFIG.cacheKey, JSON.stringify({data: allData, labels: dynamicLabels}));
+        try { fetch(CONFIG.scriptUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateAttendance', row: v.rowNumber, present: v.present })}); } catch(e) {}
     }
 </script>
 </body>
