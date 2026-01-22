@@ -3,155 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>義工管理系統 v4.5</title>
+    <title>義工管理系統 v5.5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        .loading-overlay { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(4px); }
-        .fade-in { animation: fadeIn 0.3s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-    </style>
 </head>
-<body class="bg-slate-50 min-h-screen">
+<body class="bg-slate-50 min-h-screen text-slate-800">
 
 <div id="app" class="max-w-md mx-auto p-4 pb-24">
     <header class="flex justify-between items-center mb-6">
         <div>
-            <h1 class="text-2xl font-bold text-slate-800 tracking-tight">義工管理</h1>
-            <p id="cacheStatus" class="text-[10px] text-slate-400 font-mono italic">INITIALIZING</p>
+            <h1 class="text-2xl font-black tracking-tight text-blue-600">義工管理系統</h1>
+            <p id="systemStatus" class="text-[10px] font-mono text-slate-400 italic">LINKING_TO_SHEETS</p>
         </div>
         <div class="flex gap-2">
-            <select id="dateSelect" onchange="refreshData(true)" class="text-xs bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-sm outline-none focus:ring-1 focus:ring-blue-400">
-                <option value="">選擇日期...</option>
+            <select id="dateSelect" onchange="filterData()" class="text-xs font-bold bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-sm focus:ring-2 focus:ring-blue-200 outline-none">
+                <option value="2026/02/19">2/19 (四)</option>
+                <option value="2026/02/20">2/20 (五)</option>
             </select>
-            <button onclick="refreshData(true)" class="p-2 bg-white rounded-full shadow-sm text-blue-600 active:scale-95 transition-all">
+            <button onclick="refreshData(true)" class="p-2 bg-white rounded-full shadow-sm text-blue-500 active:scale-90 transition-all">
                 <i class="fa-solid fa-arrows-rotate"></i>
             </button>
         </div>
     </header>
 
-    <!-- 篩選器 -->
-    <div class="mb-6 grid grid-cols-2 gap-3">
-        <select id="groupSelect" onchange="updateSubAndFilter()" class="p-3 bg-white border border-slate-200 rounded-xl text-sm shadow-sm outline-none">
-            <option value="全部大組">全部大組</option>
-        </select>
-        <select id="subGroupSelect" onchange="filterData()" class="p-3 bg-white border border-slate-200 rounded-xl text-sm shadow-sm outline-none">
-            <option value="全部小組">全部小組</option>
-        </select>
-    </div>
-
-    <!-- 名單列表 -->
-    <div id="volunteerList" class="space-y-3">
-        <div class="py-20 text-center">
-            <i class="fa-solid fa-circle-notch fa-spin text-3xl text-blue-500 mb-4"></i>
-            <p class="text-slate-400 text-sm">正在同步數據...</p>
+    <!-- 頂部操作區 -->
+    <div class="space-y-3 mb-6">
+        <div class="grid grid-cols-2 gap-3">
+            <select id="groupSelect" onchange="updateSubAndFilter()" class="p-3 bg-white border border-slate-200 rounded-xl text-sm shadow-sm outline-none">
+                <option value="全部大組">全部大組</option>
+            </select>
+            <select id="subGroupSelect" onchange="filterData()" class="p-3 bg-white border border-slate-200 rounded-xl text-sm shadow-sm outline-none">
+                <option value="全部小組">全部小組</option>
+            </select>
         </div>
-    </div>
-</div>
-
-<!-- 編輯視窗 -->
-<div id="editModal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-4 loading-overlay">
-    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 fade-in border border-slate-100">
-        <div class="flex justify-between items-center mb-6">
-            <div>
-                <h3 class="text-xl font-bold text-slate-800" id="modalName">編輯資料</h3>
-                <p class="text-xs text-slate-400">欄位與內容自動同步雲端</p>
+        <div class="flex gap-2">
+            <div class="relative flex-1">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
+                <input type="text" id="searchInput" oninput="filterData()" placeholder="搜尋姓名或 UID..." class="w-full p-3 pl-11 bg-white border border-slate-200 rounded-xl text-sm shadow-sm outline-none">
             </div>
-            <button onclick="closeModal()" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-400">
-                <i class="fa-solid fa-xmark"></i>
+            <button onclick="openRegisterModal()" class="px-4 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-100 flex items-center justify-center active:scale-95 transition-all">
+                <i class="fa-solid fa-plus mr-2"></i>現場
             </button>
         </div>
-        
-        <div id="editFields" class="space-y-5 max-h-[50vh] overflow-y-auto pr-2 no-scrollbar">
-            <!-- 動態生成內容 -->
-        </div>
+    </div>
 
-        <div class="mt-8 flex gap-3">
-            <button onclick="closeModal()" class="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold">取消</button>
-            <button id="saveBtn" onclick="saveEdit()" class="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 active:bg-blue-700">確認更新</button>
+    <!-- 列表容器 -->
+    <div id="volunteerList" class="space-y-3">
+        <div class="py-20 text-center">
+            <i class="fa-solid fa-spinner fa-spin text-3xl text-blue-500 mb-4"></i>
+            <p class="text-slate-400 text-sm italic">正在同步名單...</p>
         </div>
     </div>
 </div>
 
-<div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-800/90 text-white text-sm rounded-full opacity-0 transition-opacity pointer-events-none z-50 backdrop-blur-sm">
-    OK
+<!-- 編輯模態框 -->
+<div id="editModal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 border border-slate-100">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h3 class="text-xl font-bold text-slate-800" id="modalName">義工資料修改</h3>
+                <p class="text-[10px] text-slate-400 uppercase tracking-widest mt-1">Manual Update I - M Columns</p>
+            </div>
+            <button onclick="closeModal('editModal')" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div id="editFields" class="space-y-4 max-h-[50vh] overflow-y-auto pr-2"></div>
+        <div class="mt-8 flex gap-3">
+            <button onclick="closeModal('editModal')" class="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold">取消</button>
+            <button id="saveBtn" onclick="saveEdit()" class="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200">儲存變更</button>
+        </div>
+    </div>
 </div>
+
+<!-- 現場報名模態框 -->
+<div id="regModal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+    <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 border border-slate-100">
+        <div class="mb-6">
+            <h3 class="text-xl font-bold text-slate-800">臨時現場報名</h3>
+            <p class="text-xs text-slate-400 mt-1">系統將自動產生 UID 並寫入報名資料頁最末行</p>
+        </div>
+        <div class="space-y-4">
+            <input type="text" id="regName" placeholder="義工姓名" class="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none focus:ring-2 focus:ring-blue-100 font-medium">
+            <div class="grid grid-cols-2 gap-3">
+                <input type="text" id="regGroup" placeholder="大組 (如: 總務大組)" class="p-4 bg-slate-50 rounded-2xl border-none outline-none">
+                <input type="text" id="regSubGroup" placeholder="小組 (如: 環保)" class="p-4 bg-slate-50 rounded-2xl border-none outline-none">
+            </div>
+            <input type="tel" id="regPhone" placeholder="聯絡電話" class="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none">
+        </div>
+        <div class="mt-8 flex gap-3">
+            <button onclick="closeModal('regModal')" class="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold">取消</button>
+            <button id="regSubmitBtn" onclick="submitRegister()" class="flex-1 py-4 bg-green-600 text-white rounded-2xl font-bold shadow-lg shadow-green-200">確認報名</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-800/95 text-white text-sm rounded-full opacity-0 transition-opacity pointer-events-none z-50 backdrop-blur-md">OK</div>
 
 <script>
     const CONFIG = {
         scriptUrl: 'https://script.google.com/macros/s/AKfycbx5RwtQbE1kRran4GDXTh2M5ZLojNhzL-mAP32OO_Aa5-6ek4gHPYERFqjmVjJa9LH7/exec',
         liffId: '2008940815-C8JZBiJj',
-        cacheKey: 'v_data_v45',
-        cols: ['I', 'J', 'K', 'L', 'M']
+        cacheKey: 'v_data_v55_prod'
     };
 
     let allData = [];
     let dynamicLabels = {};
-    let editingIndex = -1;
+    let editingUID = '';
+    let operatorName = '現場櫃檯';
 
     window.onload = async () => {
-        try { await liff.init({ liffId: CONFIG.liffId }); } catch (e) {}
-        initDates();
+        try { 
+            await liff.init({ liffId: CONFIG.liffId }); 
+            if(liff.isLoggedIn()){ 
+                const p = await liff.getProfile(); 
+                operatorName = p.displayName; 
+            } 
+        } catch (e) {}
+        
         loadCache();
+        refreshData();
     };
-
-    async function initDates() {
-        try {
-            const res = await fetch(`${CONFIG.scriptUrl}?action=getDates`);
-            const json = await res.json();
-            const dateSel = document.getElementById('dateSelect');
-            dateSel.innerHTML = json.dates.map(d => `<option value="${d}">${d}</option>`).join('');
-            if (json.dates.length > 0) refreshData();
-        } catch (e) { 
-            document.getElementById('cacheStatus').innerText = 'DATES_ERROR';
-        }
-    }
 
     function loadCache() {
         const cached = localStorage.getItem(CONFIG.cacheKey);
         if (cached) {
             const parsed = JSON.parse(cached);
-            allData = parsed.data;
-            dynamicLabels = parsed.labels;
-            document.getElementById('cacheStatus').innerText = 'CACHE_HITTED';
-            setupSelectors();
-            filterData();
+            allData = parsed.data; dynamicLabels = parsed.labels;
+            setupSelectors(); filterData();
         }
     }
 
     async function refreshData(force = false) {
-        const date = document.getElementById('dateSelect').value;
-        if (!date) return;
-        
-        const status = document.getElementById('cacheStatus');
-        status.innerText = 'SYNCING...';
-        if(force) document.getElementById('volunteerList').innerHTML = '<div class="py-20 text-center"><i class="fa-solid fa-spinner fa-spin text-3xl text-blue-500"></i></div>';
-
+        const status = document.getElementById('systemStatus');
+        status.innerText = 'FETCHING_CLOUD...';
         try {
-            const res = await fetch(`${CONFIG.scriptUrl}?action=getVolunteers&date=${date}&_=${Date.now()}`);
+            const res = await fetch(`${CONFIG.scriptUrl}?action=getVolunteers&_=${Date.now()}`);
             const json = await res.json();
             if (json.status === 'success') {
-                allData = json.data;
-                dynamicLabels = json.labels;
+                allData = json.data; dynamicLabels = json.labels;
                 localStorage.setItem(CONFIG.cacheKey, JSON.stringify({data: allData, labels: dynamicLabels}));
-                status.innerText = 'SYNC_COMPLETE';
-                setupSelectors();
-                filterData();
+                status.innerText = 'DATABASE_SYNCED';
+                setupSelectors(); filterData();
             }
-        } catch (e) {
-            status.innerText = 'OFFLINE';
-            showToast('同步失敗');
-        }
+        } catch (e) { status.innerText = 'OFFLINE_MODE'; }
     }
 
     function setupSelectors() {
-        const gs = [...new Set(allData.map(v => v.mainGroup).filter(Boolean))];
+        const groups = [...new Set(allData.map(v => v.mainGroup).filter(Boolean))];
         const gSel = document.getElementById('groupSelect');
-        const oldG = gSel.value;
-        gSel.innerHTML = '<option value="全部大組">全部大組</option>' + gs.map(g => `<option value="${g}">${g}</option>`).join('');
-        if(gs.includes(oldG)) gSel.value = oldG;
+        const current = gSel.value;
+        gSel.innerHTML = '<option value="全部大組">全部大組</option>' + groups.map(g => `<option value="${g}">${g}</option>`).join('');
+        if (groups.includes(current)) gSel.value = current;
         updateSubAndFilter();
     }
 
@@ -166,107 +168,147 @@
     function filterData() {
         const g = document.getElementById('groupSelect').value;
         const s = document.getElementById('subGroupSelect').value;
-        const filtered = allData.filter(v => (g === '全部大組' || v.mainGroup === g) && (s === '全部小組' || v.subGroup === s));
-        render(filtered);
+        const q = document.getElementById('searchInput').value.toLowerCase();
+        const date = document.getElementById('dateSelect').value;
+        const isDay19 = date.includes('02/19');
+
+        const filtered = allData.filter(v => {
+            const matchGroup = (g === '全部大組' || v.mainGroup === g);
+            const matchSub = (s === '全部小組' || v.subGroup === s);
+            const matchSearch = (v.name.includes(q) || v.uid.toLowerCase().includes(q));
+            return matchGroup && matchSub && matchSearch;
+        });
+
+        renderList(filtered, isDay19);
     }
 
-    function render(data) {
+    function renderList(data, isDay19) {
         const container = document.getElementById('volunteerList');
-        if(!data.length) {
-            container.innerHTML = '<div class="py-20 text-center text-slate-300">查無數據</div>';
-            return;
-        }
+        if(!data.length) { container.innerHTML = '<div class="py-20 text-center text-slate-300 italic">無名單數據</div>'; return; }
+        
         container.innerHTML = data.map(v => {
-            const gIdx = allData.findIndex(raw => raw.rowNumber === v.rowNumber);
+            const isEligible = isDay19 ? v.lunch19 : v.lunch20;
+            const isChecked = isDay19 ? v.present19 : v.present20;
+            
             return `
-            <div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-slate-100 fade-in">
+            <div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-slate-100 ${!isEligible ? 'opacity-50 grayscale-[0.5]' : ''}">
                 <div class="flex items-center gap-4">
-                    <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center font-bold text-lg">
+                    <div class="w-10 h-10 ${isChecked ? 'bg-green-100 text-green-600' : (isEligible ? 'bg-blue-50 text-blue-500' : 'bg-slate-100 text-slate-400')} rounded-full flex items-center justify-center font-bold">
                         ${v.name[0]}
                     </div>
                     <div>
-                        <div class="font-bold text-slate-800 text-base">${v.name}</div>
-                        <div class="text-[10px] text-slate-400 uppercase tracking-wider">${v.mainGroup || '--'} / ${v.subGroup || '--'}</div>
+                        <div class="font-bold ${isEligible ? 'text-slate-800' : 'text-slate-500'} text-base">
+                            ${v.name} 
+                            ${!isEligible ? '<span class="text-[9px] bg-slate-200 px-1 rounded ml-1 font-normal">臨時</span>' : ''}
+                        </div>
+                        <div class="text-[10px] text-slate-400 uppercase tracking-widest font-medium">${v.mainGroup || '--'} / ${v.subGroup || '--'}</div>
                     </div>
                 </div>
                 <div class="flex gap-1">
-                    <button onclick="openModal(${gIdx})" class="p-3 text-slate-300 hover:text-blue-500 transition-colors"><i class="fa-solid fa-pen-to-square"></i></button>
-                    <button onclick="check(${gIdx})" class="p-3 ${v.present?'text-green-500':'text-slate-100'} transition-all"><i class="fa-solid fa-circle-check text-2xl"></i></button>
+                    <button onclick="openEditModal('${v.uid}')" class="p-3 text-slate-300 hover:text-blue-500 transition-colors"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button onclick="handleAttendance('${v.uid}')" class="p-3 ${isChecked ? 'text-green-500' : 'text-slate-100'} transition-all active:scale-125">
+                        <i class="fa-solid fa-circle-check text-2xl"></i>
+                    </button>
                 </div>
             </div>`;
         }).join('');
     }
 
-    function openModal(idx) {
-        editingIndex = idx;
-        const v = allData[idx];
-        document.getElementById('modalName').innerText = v.name;
+    async function handleAttendance(uid) {
+        const date = document.getElementById('dateSelect').value;
+        const v = allData.find(x => x.uid === uid);
+        const isDay19 = date.includes('02/19');
+        const currentState = isDay19 ? v.present19 : v.present20;
+        const newState = !currentState;
+
+        if (isDay19) {
+            v.present19 = newState;
+            if (newState && v.lunch20) v.present20 = true;
+        } else {
+            v.present20 = newState;
+        }
+        filterData();
+
+        try {
+            await fetch(CONFIG.scriptUrl, {
+                method: 'POST', mode: 'no-cors',
+                body: JSON.stringify({ action: 'updateAttendance', uid, present: newState, date, operator: operatorName })
+            });
+            showToast(newState ? `${v.name} 報到成功` : '已撤銷報到');
+        } catch (e) { showToast('網路異常，請重試'); }
+    }
+
+    function openRegisterModal() { document.getElementById('regModal').classList.remove('hidden'); }
+    
+    async function submitRegister() {
+        const name = document.getElementById('regName').value.trim();
+        const group = document.getElementById('regGroup').value.trim();
+        const subGroup = document.getElementById('regSubGroup').value.trim();
+        const phone = document.getElementById('regPhone').value.trim();
         
-        const fieldsHtml = CONFIG.cols.map((c) => {
+        if (!name) return showToast('請輸入姓名');
+        
+        const btn = document.getElementById('regSubmitBtn');
+        btn.disabled = true; btn.innerText = '處理中...';
+        
+        try {
+            const res = await fetch(CONFIG.scriptUrl, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'registerNew', newData: {name, group, subGroup, phone}, operator: operatorName })
+            });
+            const result = await res.json();
+            if (result.status === 'success') {
+                showToast('現場報名成功 UID: ' + result.uid);
+                closeModal('regModal');
+                refreshData(true);
+            }
+        } catch (e) { showToast('報名失敗，請稍後再試'); }
+        finally { btn.disabled = false; btn.innerText = '確認報名'; }
+    }
+
+    function openEditModal(uid) {
+        editingUID = uid;
+        const v = allData.find(x => x.uid === uid);
+        document.getElementById('modalName').innerText = v.name;
+        document.getElementById('editFields').innerHTML = ['I', 'J', 'K', 'L', 'M'].map(c => {
             const val = v['col_'+c] || '';
             const label = dynamicLabels[c] || c;
             const isBinary = (val === '是' || val === '否' || val === '');
-            
             return `
-            <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                <label class="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">${label}</label>
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <label class="block text-[10px] font-black text-slate-400 uppercase mb-3 ml-1 tracking-widest">${label}</label>
                 ${isBinary ? `
                 <div class="flex gap-2">
-                    <button onclick="setBin('${c}', '是')" id="btn-${c}-是" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${val==='是'?'bg-blue-600 text-white shadow-md':'bg-white text-slate-400 border border-slate-200'}">是</button>
-                    <button onclick="setBin('${c}', '否')" id="btn-${c}-否" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${val==='否'?'bg-blue-600 text-white shadow-md':'bg-white text-slate-400 border border-slate-200'}">否</button>
+                    <button onclick="setBin('${c}','是')" id="btn-${c}-是" class="flex-1 py-3 rounded-xl text-sm font-bold ${val==='是'?'bg-blue-600 text-white shadow-md':'bg-white text-slate-400 border border-slate-200'}">是</button>
+                    <button onclick="setBin('${c}','否')" id="btn-${c}-否" class="flex-1 py-3 rounded-xl text-sm font-bold ${val==='否'?'bg-blue-600 text-white shadow-md':'bg-white text-slate-400 border border-slate-200'}">否</button>
                     <input type="hidden" id="in-${c}" value="${val}">
-                </div>
-                ` : `
-                <input type="text" id="in-${c}" value="${val}" class="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none text-slate-700 font-medium">
-                `}
+                </div>` : `
+                <input type="text" id="in-${c}" value="${val}" class="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none text-slate-700 font-medium">`}
             </div>`;
         }).join('');
-        
-        document.getElementById('editFields').innerHTML = fieldsHtml;
         document.getElementById('editModal').classList.remove('hidden');
     }
 
-    function setBin(col, val) {
-        document.getElementById('in-'+col).value = val;
-        const btnYes = document.getElementById(`btn-${col}-是`);
-        const btnNo = document.getElementById(`btn-${col}-否`);
-        if (val === '是') {
-            btnYes.className = "flex-1 py-3 rounded-xl text-sm font-bold bg-blue-600 text-white shadow-md transition-all";
-            btnNo.className = "flex-1 py-3 rounded-xl text-sm font-bold bg-white text-slate-400 border border-slate-200 transition-all";
-        } else {
-            btnYes.className = "flex-1 py-3 rounded-xl text-sm font-bold bg-white text-slate-400 border border-slate-200 transition-all";
-            btnNo.className = "flex-1 py-3 rounded-xl text-sm font-bold bg-blue-600 text-white shadow-md transition-all";
-        }
+    function setBin(c, v) {
+        document.getElementById('in-'+c).value = v;
+        document.getElementById(`btn-${c}-是`).className = `flex-1 py-3 rounded-xl text-sm font-bold transition-all ${v==='是'?'bg-blue-600 text-white shadow-md':'bg-white text-slate-400 border border-slate-200'}`;
+        document.getElementById(`btn-${c}-否`).className = `flex-1 py-3 rounded-xl text-sm font-bold transition-all ${v==='否'?'bg-blue-600 text-white shadow-md':'bg-white text-slate-400 border border-slate-200'}`;
     }
 
     async function saveEdit() {
         const btn = document.getElementById('saveBtn');
-        btn.disabled = true; btn.innerText = 'SYNCING...';
-        const v = allData[editingIndex];
+        btn.disabled = true; btn.innerText = '同步中...';
         const up = {};
-        CONFIG.cols.forEach(c => up[c] = document.getElementById('in-'+c).value);
-
+        ['I', 'J', 'K', 'L', 'M'].forEach(c => up[c] = document.getElementById('in-'+c).value);
         try {
-            await fetch(CONFIG.scriptUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateDetails', row: v.rowNumber, updates: up })});
-            CONFIG.cols.forEach(c => v['col_'+c] = up[c]);
-            localStorage.setItem(CONFIG.cacheKey, JSON.stringify({data: allData, labels: dynamicLabels}));
-            showToast('已同步至雲端');
-            closeModal();
-            filterData();
-        } catch(e) { showToast('失敗'); }
-        finally { btn.disabled = false; btn.innerText = '確認更新'; }
+            await fetch(CONFIG.scriptUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateDetails', uid: editingUID, updates: up })});
+            refreshData(true);
+            showToast('已更新'); closeModal('editModal');
+        } catch(e) { showToast('失敗'); } finally { btn.disabled = false; btn.innerText = '儲存變更'; }
     }
 
-    function closeModal() { document.getElementById('editModal').classList.add('hidden'); }
-    function showToast(m) { const t = document.getElementById('toast'); t.innerText = m; t.style.opacity = '1'; setTimeout(() => t.style.opacity = '0', 2000); }
-
-    async function check(idx) {
-        const v = allData[idx];
-        v.present = !v.present;
-        filterData();
-        localStorage.setItem(CONFIG.cacheKey, JSON.stringify({data: allData, labels: dynamicLabels}));
-        try { fetch(CONFIG.scriptUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateAttendance', row: v.rowNumber, present: v.present })}); } catch(e) {}
-    }
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+    function showToast(m) { const t = document.getElementById('toast'); t.innerText = m; t.style.opacity = '1'; setTimeout(() => t.style.opacity = '0', 2500); }
 </script>
 </body>
 </html>
