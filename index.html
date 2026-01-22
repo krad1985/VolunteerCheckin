@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>義工報名與點名系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .loading-overlay {
@@ -22,31 +23,18 @@
     <header class="flex justify-between items-center mb-6">
         <div>
             <h1 class="text-2xl font-bold text-slate-800">義工管理系統</h1>
-            <p id="cacheStatus" class="text-xs text-slate-400">資料已從雲端同步</p>
+            <p id="cacheStatus" class="text-xs text-slate-400">正在初始化系統...</p>
         </div>
         <button onclick="refreshData(true)" class="p-2 bg-white rounded-full shadow-sm hover:bg-blue-50 text-blue-600 transition-colors">
             <i class="fa-solid fa-arrows-rotate"></i>
         </button>
     </header>
 
-    <!-- 統計與搜尋中心 -->
-    <div class="bg-white rounded-2xl p-4 shadow-sm mb-6 border border-slate-100">
-        <div class="flex items-center gap-2 mb-3">
-            <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
-            <input type="text" id="searchInput" oninput="handleSearch()" placeholder="輸入關鍵字搜尋或統計..." 
-                   class="w-full outline-none text-slate-700 bg-transparent">
-        </div>
-        <div id="statsPreview" class="hidden mt-2 p-3 bg-blue-50 rounded-xl text-sm text-blue-800 border border-blue-100">
-            <!-- 統計結果會顯示在這裡 -->
-        </div>
-    </div>
-
     <!-- 名單列表 -->
     <div id="volunteerList" class="space-y-3">
-        <!-- 由 JavaScript 動態生成 -->
-        <div class="py-10 text-center text-slate-400">
-            <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
-            <p>正在載入名單...</p>
+        <div id="loadingPlaceholder" class="py-20 text-center text-slate-400">
+            <i class="fa-solid fa-spinner fa-spin text-3xl mb-4 text-blue-500"></i>
+            <p class="text-sm">正在從雲端載入名單...</p>
         </div>
     </div>
 </div>
@@ -63,7 +51,6 @@
         
         <div id="editFields" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
             <!-- 動態生成 I 到 M 欄的編輯項 -->
-            <p class="text-sm text-slate-500 italic">正在讀取過往紀錄...</p>
         </div>
 
         <div class="mt-6 flex gap-3">
@@ -79,12 +66,13 @@
 </div>
 
 <script>
-    // 配置區域 - 請確保與 Google Apps Script 端一致
+    // 預先設定的參數
     const CONFIG = {
-        GAS_URL = 'https://script.google.com/macros/s/AKfycbx5RwtQbE1kRran4GDXTh2M5ZLojNhzL-mAP32OO_Aa5-6ek4gHPYERFqjmVjJa9LH7/exec',
-		LIFF_ID = '2008940815-C8JZBiJj',
+        scriptUrl: 'https://script.google.com/macros/s/AKfycbx5RwtQbE1kRran4GDXTh2M5ZLojNhzL-mAP32OO_Aa5-6ek4gHPYERFqjmVjJa9LH7/exec',
+        liffId: '2008940815-C8JZBiJj',
+        cacheKey: 'v_data_cache',
         cacheTimeKey: 'v_data_timestamp',
-        cacheTTL: 1000 * 60 * 30, // 30 分鐘快取
+        cacheTTL: 1000 * 60 * 30, // 30 分鐘
         columns: ['I', 'J', 'K', 'L', 'M'],
         colLabels: ['報名狀態', '午餐需求', '交通方式', '分組任務', '備註事項']
     };
@@ -92,56 +80,102 @@
     let volunteers = [];
     let currentEditRow = null;
 
-    // 初始化
-    window.onload = () => {
-        loadData();
+    // 初始化系統
+    window.onload = async () => {
+        try {
+            await liff.init({ liffId: CONFIG.liffId });
+            if (!liff.isLoggedIn()) {
+                // 如果是在 LINE 外部開啟，視情況是否強制登入
+                // liff.login(); 
+            }
+            loadData();
+        } catch (err) {
+            console.error('LIFF 初始化失敗', err);
+            loadData(); // 即使 LIFF 失敗也嘗試載入資料
+        }
     };
 
-    // 1. 快取功能實作
+    // 快取與資料讀取
     async function loadData() {
         const cachedData = localStorage.getItem(CONFIG.cacheKey);
         const lastSync = localStorage.getItem(CONFIG.cacheTimeKey);
         const now = new Date().getTime();
 
         if (cachedData && lastSync && (now - lastSync < CONFIG.cacheTTL)) {
-            volunteers = JSON.parse(cachedData);
-            document.getElementById('cacheStatus').innerText = '模式：快速讀取 (快取中)';
-            renderList(volunteers);
+            try {
+                volunteers = JSON.parse(cachedData);
+                document.getElementById('cacheStatus').innerText = '模式：快速讀取 (快取中)';
+                renderList(volunteers);
+            } catch (e) {
+                refreshData();
+            }
         } else {
             refreshData();
         }
     }
 
     async function refreshData(force = false) {
-        document.getElementById('cacheStatus').innerText = '正在同步雲端資料...';
+        const statusEl = document.getElementById('cacheStatus');
+        statusEl.innerText = '正在同步雲端資料...';
+        
         try {
-            // 注意：這裡假設後端會回傳整張表的 JSON
-            const response = await fetch(`${CONFIG.scriptUrl}?action=getVolunteers`);
+            // 使用 GET 請求獲取名單
+            const response = await fetch(`${CONFIG.scriptUrl}?action=getVolunteers`, {
+                method: 'GET'
+            });
+            
+            if (!response.ok) throw new Error('網路回應不正確');
+            
             const result = await response.json();
             
-            volunteers = result.data;
-            localStorage.setItem(CONFIG.cacheKey, JSON.stringify(volunteers));
-            localStorage.setItem(CONFIG.cacheTimeKey, new Date().getTime().toString());
-            
-            document.getElementById('cacheStatus').innerText = '資料已同步';
-            renderList(volunteers);
+            if (result.status === 'success') {
+                volunteers = result.data;
+                localStorage.setItem(CONFIG.cacheKey, JSON.stringify(volunteers));
+                localStorage.setItem(CONFIG.cacheTimeKey, new Date().getTime().toString());
+                
+                statusEl.innerText = '資料已同步';
+                renderList(volunteers);
+            } else {
+                throw new Error(result.message || '資料獲取失敗');
+            }
         } catch (e) {
-            showToast('同步失敗，請檢查網路');
-            if (!force) loadFromCacheOnly();
+            console.error(e);
+            showToast('同步失敗，請檢查網路或 GAS 權限');
+            statusEl.innerText = '資料同步失敗';
+            
+            // 如果同步失敗但本地有舊資料，就先顯示舊資料
+            const cachedData = localStorage.getItem(CONFIG.cacheKey);
+            if (cachedData) {
+                volunteers = JSON.parse(cachedData);
+                renderList(volunteers);
+            } else {
+                document.getElementById('volunteerList').innerHTML = `
+                    <div class="py-10 text-center text-red-400">
+                        <i class="fa-solid fa-circle-exclamation text-3xl mb-2"></i>
+                        <p>無法載入名單</p>
+                        <button onclick="refreshData(true)" class="mt-4 text-blue-500 underline">再試一次</button>
+                    </div>
+                `;
+            }
         }
     }
 
     function renderList(data) {
         const container = document.getElementById('volunteerList');
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div class="py-10 text-center text-slate-400">目前沒有報名資料</div>';
+            return;
+        }
+
         container.innerHTML = data.map((person, index) => `
             <div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-slate-50">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
-                        ${person.name[0]}
+                        ${person.name ? person.name[0] : '?'}
                     </div>
                     <div>
-                        <div class="font-bold text-slate-800">${person.name}</div>
-                        <div class="text-xs text-slate-400">${person.department || '一般組'}</div>
+                        <div class="font-bold text-slate-800">${person.name || '未命名'}</div>
+                        <div class="text-xs text-slate-400">${person.group || '一般組'}</div>
                     </div>
                 </div>
                 <div class="flex gap-2">
@@ -157,22 +191,21 @@
         `).join('');
     }
 
-    // 2. 編輯功能擴張 (I-M 欄)
+    // 編輯功能 (I-M 欄)
     function openEditModal(index) {
         const person = volunteers[index];
         currentEditRow = index;
         document.getElementById('modalName').innerText = `${person.name} - 詳細資料`;
         
         const fieldsContainer = document.getElementById('editFields');
-        // 假設 person 物件包含 columnsI 到 columnsM 的屬性
-        // 在 Google Sheet 中，I 是 index 8
+        // 對應後端欄位，假設 JSON 中 key 為 col_I, col_J...
         fieldsContainer.innerHTML = CONFIG.colLabels.map((label, i) => {
-            const colKey = `col_${CONFIG.columns[i]}`; // 對應後端回傳的 key
-            const val = person[colKey] || '';
+            const colLetter = CONFIG.columns[i];
+            const val = person[`col_${colLetter}`] || '';
             return `
                 <div>
-                    <label class="block text-xs font-semibold text-slate-500 mb-1">${label} (欄位 ${CONFIG.columns[i]})</label>
-                    <input type="text" id="input-${CONFIG.columns[i]}" value="${val}" 
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">${label} (欄位 ${colLetter})</label>
+                    <input type="text" id="input-${colLetter}" value="${val}" 
                            class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-400 transition-all text-slate-700">
                 </div>
             `;
@@ -183,6 +216,7 @@
 
     async function saveEdit() {
         const btn = document.getElementById('saveBtn');
+        const originalText = btn.innerText;
         btn.disabled = true;
         btn.innerText = '儲存中...';
 
@@ -192,9 +226,9 @@
         });
 
         try {
-            // 發送到 GAS 更新指定行數
             const response = await fetch(CONFIG.scriptUrl, {
                 method: 'POST',
+                mode: 'no-cors', // GAS POST 限制通常需使用 no-cors 或特殊處理，但 no-cors 無法讀取回應內容
                 body: JSON.stringify({
                     action: 'updateDetails',
                     row: volunteers[currentEditRow].rowNumber,
@@ -202,20 +236,23 @@
                 })
             });
             
-            // 更新本地快取
-            CONFIG.columns.forEach((col, i) => {
+            // 由於 GAS no-cors 無法讀取 json，我們直接假設成功並更新本地狀態
+            // 如果您的 GAS 有處理 CORS，可以移除 no-cors
+            CONFIG.columns.forEach((col) => {
                 volunteers[currentEditRow][`col_${col}`] = updates[col];
             });
             localStorage.setItem(CONFIG.cacheKey, JSON.stringify(volunteers));
             
-            showToast('更新成功');
-            closeModal();
-            renderList(volunteers);
+            showToast('更新指令已送出');
+            setTimeout(() => {
+                closeModal();
+                renderList(volunteers);
+            }, 500);
         } catch (e) {
-            showToast('儲存失敗');
+            showToast('儲存發生錯誤');
         } finally {
             btn.disabled = false;
-            btn.innerText = '更新紀錄';
+            btn.innerText = originalText;
         }
     }
 
@@ -223,92 +260,37 @@
         document.getElementById('editModal').classList.add('hidden');
     }
 
-    // 3. 統計功能與 Flex Message 邏輯
-    function handleSearch() {
-        const query = document.getElementById('searchInput').value.trim();
-        const preview = document.getElementById('statsPreview');
-        
-        if (!query) {
-            preview.classList.add('hidden');
-            renderList(volunteers);
-            return;
-        }
-
-        // 過濾列表
-        const filtered = volunteers.filter(p => p.name.includes(query) || (p.col_I && p.col_I.includes(query)));
-        renderList(filtered);
-
-        // 如果輸入的是「統計」關鍵字
-        if (query === '統計' || query === 'status') {
-            const total = volunteers.length;
-            const present = volunteers.filter(p => p.present).length;
-            const lunch = volunteers.filter(p => p.col_J === '是' || p.col_J === '素食').length;
-
-            preview.innerHTML = `
-                <div class="flex flex-col gap-1">
-                    <div class="font-bold mb-1">📊 本日活動統計摘要</div>
-                    <div class="flex justify-between"><span>總報名人數:</span> <b>${total} 人</b></div>
-                    <div class="flex justify-between"><span>已到場人數:</span> <b>${present} 人</b></div>
-                    <div class="flex justify-between"><span>用餐人數:</span> <b>${lunch} 人</b></div>
-                    <button onclick="copyFlexMessage()" class="mt-2 py-1 bg-white rounded-lg text-xs font-bold border border-blue-200">複製 LINE Flex 訊息</button>
-                </div>
-            `;
-            preview.classList.remove('hidden');
-        } else {
-            preview.classList.add('hidden');
-        }
-    }
-
-    // 生成並複製 Flex Message JSON (用於 LINE 機器人)
-    function copyFlexMessage() {
-        const total = volunteers.length;
-        const present = volunteers.filter(p => p.present).length;
-        
-        const flex = {
-            "type": "bubble",
-            "body": {
-                "type": "box",
-                "layout": "vertical",
-                "contents": [
-                    { "type": "text", "text": "義工活動報名統計", "weight": "bold", "size": "xl" },
-                    { "type": "separator", "margin": "md" },
-                    { "type": "box", "layout": "vertical", "margin": "lg", "spacing": "sm", "contents": [
-                        { "type": "box", "layout": "baseline", "spacing": "sm", "contents": [
-                            { "type": "text", "text": "總人數", "color": "#aaaaaa", "size": "sm", "flex": 1 },
-                            { "type": "text", "text": `${total} 人`, "wrap": true, "color": "#666666", "size": "sm", "flex": 5 }
-                        ]},
-                        { "type": "box", "layout": "baseline", "spacing": "sm", "contents": [
-                            { "type": "text", "text": "已到場", "color": "#aaaaaa", "size": "sm", "flex": 1 },
-                            { "type": "text", "text": `${present} 人`, "wrap": true, "color": "#666666", "size": "sm", "flex": 5 }
-                        ]}
-                    ]}
-                ]
-            }
-        };
-
-        const textArea = document.createElement("textarea");
-        textArea.value = JSON.stringify(flex);
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        showToast('Flex Message 已複製到剪貼簿');
-    }
-
     function showToast(msg) {
         const t = document.getElementById('toast');
         t.innerText = msg;
         t.style.opacity = '1';
-        setTimeout(() => t.style.opacity = '0', 2000);
+        setTimeout(() => t.style.opacity = '0', 2500);
     }
 
-    function toggleAttendance(index) {
-        volunteers[index].present = !volunteers[index].present;
-        localStorage.setItem(CONFIG.cacheKey, JSON.stringify(volunteers));
-        renderList(volunteers);
-        showToast(volunteers[index].present ? '已完成點名' : '已取消點名');
+    async function toggleAttendance(index) {
+        const person = volunteers[index];
+        person.present = !person.present;
         
-        // 這裡可以呼叫 GAS 更新到 Google Sheets 的 B 欄(假設是出席欄)
+        // 更新本地 UI
+        renderList(volunteers);
+        localStorage.setItem(CONFIG.cacheKey, JSON.stringify(volunteers));
+        
+        showToast(person.present ? '已完成點名' : '已取消點名');
+
+        // 同步到 GAS (假設 B 欄是出席狀態)
+        try {
+            fetch(CONFIG.scriptUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify({
+                    action: 'updateAttendance',
+                    row: person.rowNumber,
+                    present: person.present
+                })
+            });
+        } catch (e) {
+            console.error('點名同步失敗');
+        }
     }
 
 </script>
