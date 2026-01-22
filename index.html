@@ -2,21 +2,22 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>義工報到系統 v6.7</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>義工報到系統 v6.7 Professional</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; }
+        body { font-family: 'Noto Sans TC', sans-serif; overflow-x: hidden; }
         .glass { background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(12px); }
         .loading-overlay { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); }
         .tab-active { @apply text-blue-700 border-t-[6px] border-blue-600 bg-blue-50/80; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
-        .text-senior-base { font-size: 1.35rem; line-height: 1.9rem; }
-        .text-senior-lg { font-size: 1.65rem; line-height: 2.3rem; }
+        /* 年長者友善極大字體設定 */
+        .text-senior-base { font-size: 1.45rem; line-height: 2rem; }
+        .text-senior-lg { font-size: 1.75rem; line-height: 2.4rem; }
         .text-senior-sm { font-size: 1.15rem; }
         .text-senior-xs { font-size: 0.95rem; }
     </style>
@@ -28,7 +29,7 @@
     <header class="p-6 glass sticky top-0 z-40 border-b border-slate-100 flex justify-between items-center shadow-sm">
         <div>
             <h1 class="text-2xl font-black tracking-tight text-slate-800">義工報到系統</h1>
-            <p id="systemStatus" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">Stable Production v6.7</p>
+            <p id="systemStatus" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">V6.7 Stable</p>
         </div>
         <select id="dateSelect" onchange="filterData()" class="text-sm font-black bg-blue-600 text-white rounded-full px-4 py-2 shadow-md outline-none active:scale-95 transition-all">
             <option value="2026/02/19">2/19 初三</option>
@@ -53,19 +54,19 @@
                     <input type="text" id="searchInput" oninput="filterData()" placeholder="搜尋姓名或編號..." class="w-full p-5 pl-14 bg-white border-2 border-slate-100 rounded-2xl text-senior-base shadow-sm outline-none focus:ring-4 focus:ring-blue-50">
                 </div>
             </div>
-            <div id="volunteerList" class="space-y-3.5">
-                <div class="py-20 text-center text-slate-400 font-bold"><i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4 text-blue-500"></i><p>同步雲端名單...</p></div>
+            <div id="volunteerList" class="space-y-4">
+                <div class="py-20 text-center text-slate-400 font-bold"><i class="fa-solid fa-spinner fa-spin text-4xl mb-4"></i><p>載入名單中...</p></div>
             </div>
         </div>
 
         <div id="statsView" class="hidden animate-in fade-in slide-in-from-bottom-6 duration-500">
             <div id="summaryCards" class="grid grid-cols-2 gap-4 mb-6">
                 <div class="bg-blue-600 p-6 rounded-[36px] text-white shadow-xl">
-                    <p class="text-[11px] font-bold uppercase opacity-80">實到人數</p>
+                    <p class="text-[11px] font-bold uppercase opacity-80 tracking-widest">實到人數</p>
                     <h3 id="sumPresent" class="text-5xl font-black mt-1">0</h3>
                 </div>
                 <div class="bg-white p-6 rounded-[36px] border-2 border-blue-50 shadow-sm">
-                    <p class="text-[11px] font-bold text-slate-400 uppercase">應到人數</p>
+                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">應到人數</p>
                     <h3 id="sumTotal" class="text-5xl font-black text-slate-700 mt-1">0</h3>
                 </div>
             </div>
@@ -92,21 +93,19 @@
     </nav>
 </div>
 
-<!-- 編輯視窗 (黃金比例 2:1 修復版) -->
+<!-- 編輯視窗 -->
 <div id="editModal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-4 loading-overlay">
     <div class="bg-white w-full max-w-md rounded-[40px] shadow-2xl p-8 border border-slate-100 flex flex-col max-h-[90vh]">
         <div class="flex justify-between items-center mb-6 pb-4 border-b-2 border-slate-50 shrink-0">
             <div>
                 <h3 class="text-2xl font-black text-slate-800" id="modalName">資料編輯</h3>
-                <p class="text-xs text-slate-400 font-bold tracking-widest">PROPORTIONAL VIEW</p>
+                <p class="text-xs text-slate-400 font-bold tracking-widest uppercase">Volunteer Metadata</p>
             </div>
             <button onclick="closeModal('editModal')" class="w-12 h-12 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center active:scale-90 transition-all"><i class="fa-solid fa-xmark text-xl"></i></button>
         </div>
-        <div id="editFields" class="space-y-3 overflow-y-auto pr-2 no-scrollbar flex-1">
-            <!-- 由 JS 生成 -->
-        </div>
+        <div id="editFields" class="space-y-3 overflow-y-auto pr-2 no-scrollbar flex-1"></div>
         <div class="mt-8 flex gap-4 shrink-0">
-            <button id="saveBtn" onclick="saveEdit()" class="flex-1 py-5 bg-blue-600 text-white rounded-3xl font-black text-senior-base shadow-xl active:scale-95 transition-all">儲存修改</button>
+            <button id="saveBtn" onclick="saveEdit()" class="flex-1 py-5 bg-blue-600 text-white rounded-3xl font-black text-senior-base shadow-xl active:scale-95 transition-all">確認修改</button>
         </div>
     </div>
 </div>
@@ -140,7 +139,7 @@
     const CONFIG = {
         scriptUrl: 'https://script.google.com/macros/s/AKfycbx5RwtQbE1kRran4GDXTh2M5ZLojNhzL-mAP32OO_Aa5-6ek4gHPYERFqjmVjJa9LH7/exec',
         liffId: '2008940815-C8JZBiJj',
-        cacheKey: 'v_data_v67_stable'
+        cacheKey: 'v_data_v67_final_stable'
     };
 
     let allData = [];
@@ -155,9 +154,9 @@
             if (liff.isLoggedIn()) {
                 const profile = await liff.getProfile();
                 operatorName = profile.displayName;
-                document.getElementById('systemStatus').innerText = `已連接: ${operatorName}`;
+                document.getElementById('systemStatus').innerText = `管理員: ${operatorName}`;
             }
-        } catch (e) { console.warn('LIFF 無法啟動'); }
+        } catch (e) { console.warn('LIFF 啟動受限'); }
         loadCache(); refreshData();
     };
 
@@ -194,7 +193,7 @@
 
     async function loadStats() {
         const container = document.getElementById('statsContainer');
-        container.innerHTML = `<div class="py-20 text-center text-slate-300 font-black italic">正在彙整分析...</div>`;
+        container.innerHTML = `<div class="py-20 text-center text-slate-300 font-black italic">計算彙整中...</div>`;
         try {
             const res = await fetch(`${CONFIG.scriptUrl}?action=getStats&_=${Date.now()}`);
             const json = await res.json();
@@ -203,7 +202,7 @@
             document.getElementById('sumPresent').innerText = isDay19 ? json.summary.p19 : json.summary.p20;
             document.getElementById('sumTotal').innerText = isDay19 ? json.summary.t19 : json.summary.t20;
             renderStats(json.groups, isDay19);
-        } catch (e) { container.innerHTML = '統計載入失敗'; }
+        } catch (e) { container.innerHTML = '讀取統計失敗'; }
     }
 
     function renderStats(groups, isDay19) {
@@ -217,12 +216,12 @@
             return `
             <div class="bg-white p-6 rounded-[32px] border border-slate-50 flex justify-between items-center shadow-sm">
                 <div class="flex-1">
-                    <h4 class="font-black text-senior-lg text-slate-800">${name}</h4>
-                    <div class="flex gap-4 mt-1 font-bold text-slate-400 text-senior-sm">
+                    <h4 class="font-black text-senior-lg text-slate-800 tracking-tighter truncate">${name}</h4>
+                    <div class="flex gap-5 mt-1 font-bold text-slate-400 text-senior-sm">
                         <span>實到 ${present}</span><span>應到 ${total}</span>
                     </div>
                 </div>
-                <div class="text-right"><div class="text-3xl font-black text-blue-600">${rate}%</div></div>
+                <div class="text-right ml-4"><div class="text-4xl font-black text-blue-600 tracking-tighter">${rate}%</div></div>
             </div>`;
         }).join('');
     }
@@ -264,15 +263,17 @@
             const isGray = (!isEligible && !isChecked && !isLeave);
             
             return `
-            <div class="bg-white p-5 rounded-[36px] flex justify-between items-center shadow-sm border border-slate-50 transition-all ${isGray ? 'opacity-40 grayscale' : (isLeave ? 'opacity-50 italic' : '')}">
-                <div class="flex-1 min-w-0 pr-4">
-                    <div class="font-black text-senior-base ${isChecked ? 'text-green-600' : (isGray ? 'text-slate-400' : 'text-slate-800')} tracking-tight truncate">${v.name}${isLeave ? ' (請假)' : ''}</div>
-                    <div class="text-[10px] text-slate-400 font-black uppercase tracking-widest truncate">${v.mainGroup || '--'} / ${v.subGroup || '--'}</div>
+            <div class="bg-white p-5 rounded-[40px] flex items-center shadow-sm border border-slate-50 transition-all ${isGray ? 'opacity-40 grayscale' : (isLeave ? 'opacity-50 italic' : '')}">
+                <!-- 左側 2/3: 姓名與組別 -->
+                <div class="flex-[2] min-w-0 pr-2">
+                    <div class="font-black text-senior-lg ${isChecked ? 'text-green-600' : (isGray ? 'text-slate-400' : 'text-slate-800')} tracking-tighter truncate leading-none mb-1">${v.name}${isLeave ? ' (請假)' : ''}</div>
+                    <div class="text-xs text-slate-400 font-bold uppercase tracking-tight leading-tight">${v.mainGroup || '--'} / ${v.subGroup || '--'}</div>
                 </div>
-                <div class="flex items-center gap-3 shrink-0">
-                    <button onclick="handleAttendance('${v.uid}', '請假')" class="w-12 h-12 flex items-center justify-center text-slate-200 hover:text-orange-400 active:scale-90"><i class="fa-solid fa-calendar-minus text-2xl"></i></button>
-                    <button onclick="openEditModal('${v.uid}')" class="w-12 h-12 flex items-center justify-center text-slate-200 hover:text-blue-500 active:scale-90"><i class="fa-solid fa-pen-to-square text-2xl"></i></button>
-                    <button onclick="handleAttendance('${v.uid}', '${isChecked?'否':'是'}')" class="w-16 h-16 flex items-center justify-center ${isChecked ? 'text-green-500' : 'text-slate-200'} active:scale-125 transition-all"><i class="fa-solid fa-circle-check text-5xl"></i></button>
+                <!-- 右側 1/3: 操作按鈕 -->
+                <div class="flex-[1] flex items-center justify-end gap-1 shrink-0">
+                    <button onclick="handleAttendance('${v.uid}', '請假')" class="w-11 h-11 flex items-center justify-center text-slate-200 hover:text-orange-400 active:scale-90 transition-all"><i class="fa-solid fa-calendar-minus text-xl"></i></button>
+                    <button onclick="openEditModal('${v.uid}')" class="w-11 h-11 flex items-center justify-center text-slate-200 hover:text-blue-500 active:scale-90 transition-all"><i class="fa-solid fa-pen-to-square text-xl"></i></button>
+                    <button onclick="handleAttendance('${v.uid}', '${isChecked?'否':'是'}')" class="w-14 h-14 flex items-center justify-center ${isChecked ? 'text-green-500' : 'text-slate-200'} active:scale-125 transition-all"><i class="fa-solid fa-circle-check text-4xl"></i></button>
                 </div>
             </div>`;
         }).join('');
@@ -284,7 +285,7 @@
         const isDay19 = date.includes('02/19');
         if (isDay19) { v.present19 = status; if(status === '是' && v.lunch20) v.present20 = '是'; } else { v.present20 = status; }
         filterData();
-        // 取消 Toast 或縮短延遲以提升即時感
+        // 樂觀更新，不顯示 Toast 提升流暢度
         try {
             fetch(CONFIG.scriptUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateAttendance', uid, status, date, operator: operatorName }) });
         } catch (e) {}
@@ -333,8 +334,8 @@
                 <div class="flex-[1] flex justify-end shrink-0">
                     ${isBinary ? `
                     <div class="flex gap-1.5">
-                        <button onclick="setBin('${c}','是')" id="btn-${c}-是" class="w-12 py-1.5 rounded-xl text-senior-xs font-black border-2 ${val==='是'?'bg-blue-600 text-white border-transparent shadow-md':'bg-white text-slate-400 border-slate-200'}">是</button>
-                        <button onclick="setBin('${c}','否')" id="btn-${c}-否" class="w-12 py-1.5 rounded-xl text-senior-xs font-black border-2 ${val==='否'?'bg-blue-600 text-white border-transparent shadow-md':'bg-white text-slate-400 border-slate-200'}">否</button>
+                        <button onclick="setBin('${c}','是')" id="btn-${c}-是" class="w-12 py-1.5 rounded-xl text-senior-xs font-black border-2 ${val==='是'?'bg-blue-600 text-white border-transparent shadow-sm':'bg-white text-slate-400 border-slate-200'}">是</button>
+                        <button onclick="setBin('${c}','否')" id="btn-${c}-否" class="w-12 py-1.5 rounded-xl text-senior-xs font-black border-2 ${val==='否'?'bg-blue-600 text-white border-transparent shadow-sm':'bg-white text-slate-400 border-slate-200'}">否</button>
                         <input type="hidden" id="in-${c}" value="${val}">
                     </div>` : `
                     <input type="text" id="in-${c}" value="${val}" class="w-24 p-1.5 bg-white border-2 border-slate-200 rounded-xl text-senior-xs font-bold outline-none text-center">`}
@@ -346,7 +347,7 @@
 
     function setBin(c, v) {
         document.getElementById('in-'+c).value = v;
-        const act = "w-12 py-1.5 rounded-xl text-senior-xs font-black bg-blue-600 text-white border-transparent shadow-md transition-all";
+        const act = "w-12 py-1.5 rounded-xl text-senior-xs font-black bg-blue-600 text-white border-transparent shadow-sm transition-all";
         const inact = "w-12 py-1.5 rounded-xl text-senior-xs font-black bg-white text-slate-400 border-slate-200 transition-all";
         document.getElementById(`btn-${c}-是`).className = (v==='是' ? act : inact);
         document.getElementById(`btn-${c}-否`).className = (v==='否' ? act : inact);
