@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>義工報到系統 v6.7 Professional</title>
+    <title>義工報到系統 v1.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -15,21 +15,23 @@
         .tab-active { @apply text-blue-700 border-t-[6px] border-blue-600 bg-blue-50/80; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
-        /* 年長者友善極大字體設定 */
-        .text-senior-base { font-size: 1.45rem; line-height: 2rem; }
-        .text-senior-lg { font-size: 1.75rem; line-height: 2.4rem; }
+        .text-senior-base { font-size: 1.35rem; line-height: 1.9rem; }
+        .text-senior-lg { font-size: 1.65rem; line-height: 2.3rem; }
         .text-senior-sm { font-size: 1.15rem; }
         .text-senior-xs { font-size: 0.95rem; }
+        .accordion-content { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; max-height: 0; opacity: 0; overflow: hidden; }
+        .accordion-open { max-height: 500px; opacity: 1; margin-top: 1rem; }
+        .rotate-icon { transition: transform 0.3s; }
+        .rotate-180 { transform: rotate(180deg); }
     </style>
 </head>
 <body class="bg-[#F1F5F9] min-h-screen text-slate-900">
 
 <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col shadow-2xl bg-white relative">
-    <!-- 頂部標題 -->
     <header class="p-6 glass sticky top-0 z-40 border-b border-slate-100 flex justify-between items-center shadow-sm">
         <div>
             <h1 class="text-2xl font-black tracking-tight text-slate-800">義工報到系統</h1>
-            <p id="systemStatus" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">V6.7 Stable</p>
+            <p id="systemStatus" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">V7.1 Group Support</p>
         </div>
         <select id="dateSelect" onchange="filterData()" class="text-sm font-black bg-blue-600 text-white rounded-full px-4 py-2 shadow-md outline-none active:scale-95 transition-all">
             <option value="2026/02/19">2/19 初三</option>
@@ -37,7 +39,6 @@
         </select>
     </header>
 
-    <!-- 視圖容器 -->
     <main id="mainContent" class="flex-1 p-4 overflow-y-auto no-scrollbar pb-32">
         <div id="listView">
             <div class="space-y-4 mb-6">
@@ -74,7 +75,6 @@
         </div>
     </main>
 
-    <!-- 底部導覽列 -->
     <nav class="glass border-t border-slate-100 safe-bottom flex items-stretch fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 shadow-2xl">
         <button onclick="switchTab('list')" id="tabList" class="flex-1 py-5 flex flex-col items-center gap-1 transition-all tab-active">
             <i class="fa-solid fa-clipboard-user text-2xl"></i>
@@ -91,6 +91,27 @@
             <span class="text-xs font-black mt-2">現場報名</span>
         </button>
     </nav>
+</div>
+
+<!-- 團體人數輸入 Modal -->
+<div id="groupCountModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 loading-overlay">
+    <div class="bg-white w-full max-w-sm rounded-[32px] shadow-2xl p-8 text-center animate-in zoom-in duration-200">
+        <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fa-solid fa-users text-3xl"></i>
+        </div>
+        <h3 class="text-2xl font-black text-slate-800 mb-2">團體報到</h3>
+        <p class="text-slate-500 font-bold mb-6">偵測到團體報名，請輸入實際報到人數</p>
+        <div class="flex items-center justify-center gap-4 mb-8">
+            <button onclick="adjustCount(-1)" class="w-12 h-12 bg-slate-100 rounded-xl text-slate-600 text-xl font-black active:scale-90">-</button>
+            <span id="displayCount" class="text-5xl font-black text-blue-600 w-20">10</span>
+            <button onclick="adjustCount(1)" class="w-12 h-12 bg-slate-100 rounded-xl text-slate-600 text-xl font-black active:scale-90">+</button>
+        </div>
+        <input type="hidden" id="groupUID">
+        <div class="flex gap-3">
+            <button onclick="closeGroupModal()" class="flex-1 py-4 bg-slate-100 rounded-2xl font-bold text-slate-500">取消</button>
+            <button onclick="confirmGroupAttendance()" class="flex-1 py-4 bg-blue-600 rounded-2xl font-bold text-white shadow-xl">確認報到</button>
+        </div>
+    </div>
 </div>
 
 <!-- 編輯視窗 -->
@@ -110,19 +131,15 @@
     </div>
 </div>
 
-<!-- 現場報名視窗 -->
+<!-- 現場報名 -->
 <div id="regModal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-4 loading-overlay">
     <div class="bg-white w-full max-w-md rounded-[40px] shadow-2xl p-8">
         <h3 class="text-2xl font-black text-slate-800 mb-6 text-center">現場報名</h3>
         <div class="space-y-4">
             <input type="text" id="regName" placeholder="義工姓名" class="w-full p-5 bg-slate-50 rounded-3xl border-none outline-none text-senior-base font-black">
             <div class="space-y-3">
-                <select id="regGroup" onchange="updateRegSubGroups()" class="w-full p-5 bg-slate-50 rounded-3xl border-none outline-none text-senior-base font-bold appearance-none">
-                    <option value="">請選擇大組</option>
-                </select>
-                <select id="regSubGroup" class="w-full p-5 bg-slate-50 rounded-3xl border-none outline-none text-senior-base font-bold appearance-none">
-                    <option value="">請選擇小組</option>
-                </select>
+                <select id="regGroup" onchange="updateRegSubGroups()" class="w-full p-5 bg-slate-50 rounded-3xl border-none outline-none text-senior-base font-bold appearance-none"><option value="">請選擇大組</option></select>
+                <select id="regSubGroup" class="w-full p-5 bg-slate-50 rounded-3xl border-none outline-none text-senior-base font-bold appearance-none"><option value="">請選擇小組</option></select>
             </div>
             <input type="tel" id="regPhone" placeholder="電話" class="w-full p-5 bg-slate-50 rounded-3xl border-none outline-none text-senior-base">
         </div>
@@ -133,29 +150,24 @@
     </div>
 </div>
 
-<div id="toast" class="fixed bottom-32 left-1/2 -translate-x-1/2 px-8 py-4 bg-slate-900/95 text-white text-senior-base rounded-[24px] opacity-0 transition-opacity pointer-events-none z-50 backdrop-blur-2xl shadow-2xl font-black text-center min-w-[200px]">OK</div>
-
 <script>
     const CONFIG = {
         scriptUrl: 'https://script.google.com/macros/s/AKfycbx5RwtQbE1kRran4GDXTh2M5ZLojNhzL-mAP32OO_Aa5-6ek4gHPYERFqjmVjJa9LH7/exec',
         liffId: '2008940815-C8JZBiJj',
-        cacheKey: 'v_data_v67_final_stable'
+        cacheKey: 'v_data_v71_final'
     };
 
     let allData = [];
     let dynamicLabels = {};
     let editingUID = '';
     let currentTab = 'list';
-    let operatorName = '未知櫃檯';
+    let operatorName = '未知操作者';
+    let tempGroupCount = 1;
 
     window.onload = async () => {
         try { 
             await liff.init({ liffId: CONFIG.liffId }); 
-            if (liff.isLoggedIn()) {
-                const profile = await liff.getProfile();
-                operatorName = profile.displayName;
-                document.getElementById('systemStatus').innerText = `管理員: ${operatorName}`;
-            }
+            if (liff.isLoggedIn()) { const profile = await liff.getProfile(); operatorName = profile.displayName; document.getElementById('systemStatus').innerText = `管理員: ${operatorName}`; }
         } catch (e) { console.warn('LIFF 啟動受限'); }
         loadCache(); refreshData();
     };
@@ -193,7 +205,7 @@
 
     async function loadStats() {
         const container = document.getElementById('statsContainer');
-        container.innerHTML = `<div class="py-20 text-center text-slate-300 font-black italic">計算彙整中...</div>`;
+        container.innerHTML = `<div class="py-20 text-center text-slate-300 font-black italic">運算中...</div>`;
         try {
             const res = await fetch(`${CONFIG.scriptUrl}?action=getStats&_=${Date.now()}`);
             const json = await res.json();
@@ -202,28 +214,63 @@
             document.getElementById('sumPresent').innerText = isDay19 ? json.summary.p19 : json.summary.p20;
             document.getElementById('sumTotal').innerText = isDay19 ? json.summary.t19 : json.summary.t20;
             renderStats(json.groups, isDay19);
-        } catch (e) { container.innerHTML = '讀取統計失敗'; }
+        } catch (e) { container.innerHTML = '統計載入失敗'; }
     }
 
     function renderStats(groups, isDay19) {
         const container = document.getElementById('statsContainer');
-        container.innerHTML = Object.keys(groups).map(name => {
-            const g = groups[name];
-            const total = isDay19 ? g.t19 : g.t20;
-            const present = isDay19 ? g.p19 : g.p20;
-            if (total === 0 && present === 0) return '';
-            const rate = total > 0 ? ((present / total) * 100).toFixed(1) : "100.0";
+        container.innerHTML = Object.keys(groups).map(gName => {
+            const g = groups[gName].total;
+            const t = isDay19 ? g.t19 : g.t20;
+            const p = isDay19 ? g.p19 : g.p20;
+            if (t === 0 && p === 0) return '';
+            const rate = t > 0 ? ((p / t) * 100).toFixed(1) : "100.0";
+            
+            const subsHtml = Object.keys(groups[gName].subs).map(sName => {
+                const sub = groups[gName].subs[sName];
+                const st = isDay19 ? sub.t19 : sub.t20;
+                const sp = isDay19 ? sub.p19 : sub.p20;
+                if (st === 0 && sp === 0) return '';
+                const sRate = st > 0 ? ((sp / st) * 100).toFixed(0) : "100";
+                return `
+                <div class="flex justify-between items-center py-2 border-b border-slate-50 last:border-0 pl-2">
+                    <div class="text-slate-600 font-bold text-sm">${sName}</div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs text-slate-400 font-medium">${sp}/${st}</span>
+                        <span class="text-sm font-black text-blue-500 w-10 text-right">${sRate}%</span>
+                    </div>
+                </div>`;
+            }).join('');
+
             return `
-            <div class="bg-white p-6 rounded-[32px] border border-slate-50 flex justify-between items-center shadow-sm">
-                <div class="flex-1">
-                    <h4 class="font-black text-senior-lg text-slate-800 tracking-tighter truncate">${name}</h4>
-                    <div class="flex gap-5 mt-1 font-bold text-slate-400 text-senior-sm">
-                        <span>實到 ${present}</span><span>應到 ${total}</span>
+            <div class="bg-white rounded-[32px] border border-slate-50 shadow-sm overflow-hidden">
+                <div class="p-5 flex justify-between items-center cursor-pointer active:bg-slate-50 transition-colors" onclick="toggleAccordion('${gName}')">
+                    <div class="flex-1">
+                        <h4 class="font-black text-senior-lg text-slate-800 tracking-tighter truncate">${gName}</h4>
+                        <div class="flex gap-5 mt-1 font-bold text-slate-400 text-senior-sm">
+                            <span>實到 ${p}</span><span>應到 ${t}</span>
+                        </div>
+                    </div>
+                    <div class="text-right flex items-center gap-2">
+                        <div class="text-3xl font-black text-blue-600 tracking-tighter">${rate}%</div>
+                        <i id="icon-${gName}" class="fa-solid fa-chevron-down text-slate-300 rotate-icon"></i>
                     </div>
                 </div>
-                <div class="text-right ml-4"><div class="text-4xl font-black text-blue-600 tracking-tighter">${rate}%</div></div>
+                <div id="sub-${gName}" class="accordion-content bg-slate-50/50 px-5">${subsHtml}<div class="h-3"></div></div>
             </div>`;
         }).join('');
+    }
+
+    function toggleAccordion(id) {
+        const content = document.getElementById(`sub-${id}`);
+        const icon = document.getElementById(`icon-${id}`);
+        if (content.classList.contains('accordion-open')) {
+            content.classList.remove('accordion-open');
+            icon.classList.remove('rotate-180');
+        } else {
+            content.classList.add('accordion-open');
+            icon.classList.add('rotate-180');
+        }
     }
 
     function setupSelectors() {
@@ -257,40 +304,119 @@
         if(!data.length) { container.innerHTML = '<div class="py-20 text-center text-slate-300 font-black italic">無符合名單</div>'; return; }
         container.innerHTML = data.map(v => {
             const isEligible = isDay19 ? v.lunch19 : v.lunch20;
-            const regState = isDay19 ? v.present19 : v.present20;
-            const isChecked = regState === "是";
+            const regState = isDay19 ? v.present19 : v.present20; // 字串: "是", "是 (9人)", "請假", "否"
+            
+            const isChecked = regState && regState.startsWith("是");
             const isLeave = regState === "請假";
             const isGray = (!isEligible && !isChecked && !isLeave);
             
+            // 處理團體人數顯示
+            let nameDisplay = v.name;
+            if (isChecked && regState.includes('人')) {
+                const count = regState.match(/\((\d+)人\)/)[1];
+                nameDisplay += ` <span class="text-sm bg-green-100 text-green-600 px-2 py-0.5 rounded-full ml-1">實到${count}</span>`;
+            } else if (isLeave) {
+                nameDisplay += ' (請假)';
+            } else {
+                // 未報到時，若應到人數 > 1 (團體)，顯示應到標籤
+                const match = v.name.match(/等(\d+)人/);
+                if (match) nameDisplay += ` <span class="text-sm bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full ml-1">應到${match[1]}</span>`;
+            }
+
             return `
             <div class="bg-white p-5 rounded-[40px] flex items-center shadow-sm border border-slate-50 transition-all ${isGray ? 'opacity-40 grayscale' : (isLeave ? 'opacity-50 italic' : '')}">
-                <!-- 左側 2/3: 姓名與組別 -->
                 <div class="flex-[2] min-w-0 pr-2">
-                    <div class="font-black text-senior-lg ${isChecked ? 'text-green-600' : (isGray ? 'text-slate-400' : 'text-slate-800')} tracking-tighter truncate leading-none mb-1">${v.name}${isLeave ? ' (請假)' : ''}</div>
-                    <div class="text-xs text-slate-400 font-bold uppercase tracking-tight leading-tight">${v.mainGroup || '--'} / ${v.subGroup || '--'}</div>
+                    <div class="font-black text-senior-lg ${isChecked ? 'text-green-600' : (isGray ? 'text-slate-400' : 'text-slate-800')} tracking-tighter truncate leading-none mb-1">${nameDisplay}</div>
+                    <div class="text-xs text-slate-400 font-black uppercase tracking-widest truncate">${v.mainGroup || '--'} / ${v.subGroup || '--'}</div>
                 </div>
-                <!-- 右側 1/3: 操作按鈕 -->
                 <div class="flex-[1] flex items-center justify-end gap-1 shrink-0">
                     <button onclick="handleAttendance('${v.uid}', '請假')" class="w-11 h-11 flex items-center justify-center text-slate-200 hover:text-orange-400 active:scale-90 transition-all"><i class="fa-solid fa-calendar-minus text-xl"></i></button>
                     <button onclick="openEditModal('${v.uid}')" class="w-11 h-11 flex items-center justify-center text-slate-200 hover:text-blue-500 active:scale-90 transition-all"><i class="fa-solid fa-pen-to-square text-xl"></i></button>
-                    <button onclick="handleAttendance('${v.uid}', '${isChecked?'否':'是'}')" class="w-14 h-14 flex items-center justify-center ${isChecked ? 'text-green-500' : 'text-slate-200'} active:scale-125 transition-all"><i class="fa-solid fa-circle-check text-4xl"></i></button>
+                    <button onclick="handleCheck('${v.uid}', '${isChecked?'否':'是'}')" class="w-14 h-14 flex items-center justify-center ${isChecked ? 'text-green-500' : 'text-slate-200'} active:scale-125 transition-all"><i class="fa-solid fa-circle-check text-4xl"></i></button>
                 </div>
             </div>`;
         }).join('');
     }
 
-    async function handleAttendance(uid, status) {
+    // 處理報到點擊邏輯
+    function handleCheck(uid, targetStatus) {
+        if (targetStatus === '否') {
+            // 取消報到，直接執行
+            handleAttendance(uid, '否');
+            return;
+        }
+
+        const v = allData.find(x => x.uid === uid);
+        const match = v.name.match(/等(\d+)人/);
+        
+        // 偵測是否為團體報名
+        if (match) {
+            // 彈出輸入視窗
+            editingUID = uid;
+            tempGroupCount = parseInt(match[1]);
+            document.getElementById('groupUID').value = uid;
+            document.getElementById('displayCount').innerText = tempGroupCount;
+            document.getElementById('groupCountModal').classList.remove('hidden');
+        } else {
+            // 一般個人報到
+            handleAttendance(uid, '是');
+        }
+    }
+
+    // 團體報到確認
+    function adjustCount(delta) {
+        tempGroupCount += delta;
+        if (tempGroupCount < 1) tempGroupCount = 1;
+        document.getElementById('displayCount').innerText = tempGroupCount;
+    }
+
+    function confirmGroupAttendance() {
+        const uid = document.getElementById('groupUID').value;
+        handleAttendance(uid, '是', tempGroupCount);
+        closeGroupModal();
+    }
+
+    function closeGroupModal() {
+        document.getElementById('groupCountModal').classList.add('hidden');
+    }
+
+    // 核心報到執行
+    async function handleAttendance(uid, status, actualCount = 0) {
         const date = document.getElementById('dateSelect').value;
         const v = allData.find(x => x.uid === uid);
         const isDay19 = date.includes('02/19');
-        if (isDay19) { v.present19 = status; if(status === '是' && v.lunch20) v.present20 = '是'; } else { v.present20 = status; }
-        filterData();
-        // 樂觀更新，不顯示 Toast 提升流暢度
+        
+        // 預測狀態字串
+        let statusStr = status;
+        if (status === '是' && actualCount > 0) statusStr = `是 (${actualCount}人)`;
+
+        // 更新本地快取 (Optimistic UI)
+        if (isDay19) { 
+            v.present19 = statusStr; 
+            if(status.startsWith('是') && v.lunch20) v.present20 = statusStr; 
+        } else { 
+            v.present20 = statusStr; 
+        }
+        
+        filterData(); // 刷新介面
+        
         try {
-            fetch(CONFIG.scriptUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateAttendance', uid, status, date, operator: operatorName }) });
+            fetch(CONFIG.scriptUrl, { 
+                method: 'POST', 
+                mode: 'no-cors', 
+                body: JSON.stringify({ 
+                    action: 'updateAttendance', 
+                    uid, 
+                    status, 
+                    date, 
+                    operator: operatorName,
+                    actualCount // 傳遞實際人數
+                }) 
+            });
         } catch (e) {}
     }
 
+    // --- 以下為既有功能 (現場報名、編輯視窗) ---
     function openRegisterModal() {
         const groups = [...new Set(allData.map(v => v.mainGroup).filter(Boolean))];
         document.getElementById('regGroup').innerHTML = '<option value="">請選擇大組</option>' + groups.map(g => `<option value="${g}">${g}</option>`).join('');
@@ -308,11 +434,12 @@
         const name = document.getElementById('regName').value.trim();
         const group = document.getElementById('regGroup').value;
         const subGroup = document.getElementById('regSubGroup').value;
+        const phone = document.getElementById('regPhone').value.trim();
         if (!name || !group || !subGroup) return;
         const btn = document.getElementById('regSubmitBtn');
         btn.disabled = true;
         try {
-            const res = await fetch(CONFIG.scriptUrl, { method: 'POST', body: JSON.stringify({ action: 'registerNew', newData: { name, group, subGroup, phone: document.getElementById('regPhone').value }, operator: operatorName }) });
+            const res = await fetch(CONFIG.scriptUrl, { method: 'POST', body: JSON.stringify({ action: 'registerNew', newData: { name, group, subGroup, phone }, operator: operatorName }) });
             const result = await res.json();
             if (result.status === 'success') { closeModal('regModal'); refreshData(); }
         } catch (e) {} finally { btn.disabled = false; }
