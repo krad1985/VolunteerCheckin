@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>義工報到系統 v1.1</title>
+    <title>義工報到系統 v1.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -31,12 +31,20 @@
     <header class="p-6 glass sticky top-0 z-40 border-b border-slate-100 flex justify-between items-center shadow-sm">
         <div>
             <h1 class="text-2xl font-black tracking-tight text-slate-800">義工報到系統</h1>
-            <p id="systemStatus" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">V7.1 Group Support</p>
+            <div class="flex items-center gap-1.5 mt-1">
+                <span id="conn-dot" class="w-2 h-2 rounded-full bg-green-500"></span>
+                <p id="systemStatus" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">V7.2 Online</p>
+            </div>
         </div>
-        <select id="dateSelect" onchange="filterData()" class="text-sm font-black bg-blue-600 text-white rounded-full px-4 py-2 shadow-md outline-none active:scale-95 transition-all">
-            <option value="2026/02/19">2/19 初三</option>
-            <option value="2026/02/20">2/20 初四</option>
-        </select>
+        <div class="flex items-center gap-2">
+            <select id="dateSelect" onchange="filterData()" class="text-sm font-black bg-blue-600 text-white rounded-full px-4 py-2 shadow-md outline-none active:scale-95 transition-all">
+                <option value="2026/02/19">2/19 初三</option>
+                <option value="2026/02/20">2/20 初四</option>
+            </select>
+            <button onclick="forceRefresh()" class="w-10 h-10 bg-white text-slate-500 rounded-full shadow-md flex items-center justify-center active:scale-90 transition-all border border-slate-100" title="強制雲端更新">
+                <i class="fa-solid fa-cloud-arrow-down text-lg"></i>
+            </button>
+        </div>
     </header>
 
     <main id="mainContent" class="flex-1 p-4 overflow-y-auto no-scrollbar pb-32">
@@ -61,14 +69,22 @@
         </div>
 
         <div id="statsView" class="hidden animate-in fade-in slide-in-from-bottom-6 duration-500">
-            <div id="summaryCards" class="grid grid-cols-2 gap-4 mb-6">
-                <div class="bg-blue-600 p-6 rounded-[36px] text-white shadow-xl">
-                    <p class="text-[11px] font-bold uppercase opacity-80 tracking-widest">實到人數</p>
-                    <h3 id="sumPresent" class="text-5xl font-black mt-1">0</h3>
+            <!-- 總報到率儀表板 -->
+            <div class="bg-white p-6 rounded-[40px] shadow-xl border border-slate-100 mb-6 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-10 -mt-10 opacity-50"></div>
+                <div class="relative z-10 text-center mb-6">
+                    <div class="text-sm font-black text-slate-400 uppercase tracking-widest mb-1">總體報到率</div>
+                    <div id="totalRateDisplay" class="text-7xl font-black text-blue-600 tracking-tighter leading-none">0<span class="text-3xl ml-1">%</span></div>
                 </div>
-                <div class="bg-white p-6 rounded-[36px] border-2 border-blue-50 shadow-sm">
-                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">應到人數</p>
-                    <h3 id="sumTotal" class="text-5xl font-black text-slate-700 mt-1">0</h3>
+                <div class="grid grid-cols-2 gap-4 relative z-10">
+                    <div class="bg-slate-50 p-4 rounded-2xl text-center border border-slate-100">
+                        <p class="text-[10px] font-bold uppercase text-slate-400 mb-1">當日實到</p>
+                        <h3 id="sumPresent" class="text-3xl font-black text-slate-800">0</h3>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-2xl text-center border border-slate-100">
+                        <p class="text-[10px] font-bold uppercase text-slate-400 mb-1">當日應到</p>
+                        <h3 id="sumTotal" class="text-3xl font-black text-slate-800">0</h3>
+                    </div>
                 </div>
             </div>
             <div id="statsContainer" class="space-y-4"></div>
@@ -100,16 +116,16 @@
             <i class="fa-solid fa-users text-3xl"></i>
         </div>
         <h3 class="text-2xl font-black text-slate-800 mb-2">團體報到</h3>
-        <p class="text-slate-500 font-bold mb-6">偵測到團體報名，請輸入實際報到人數</p>
+        <p class="text-slate-500 font-bold mb-6">請確認實際報到人數</p>
         <div class="flex items-center justify-center gap-4 mb-8">
-            <button onclick="adjustCount(-1)" class="w-12 h-12 bg-slate-100 rounded-xl text-slate-600 text-xl font-black active:scale-90">-</button>
-            <span id="displayCount" class="text-5xl font-black text-blue-600 w-20">10</span>
-            <button onclick="adjustCount(1)" class="w-12 h-12 bg-slate-100 rounded-xl text-slate-600 text-xl font-black active:scale-90">+</button>
+            <button onclick="adjustCount(-1)" class="w-14 h-14 bg-slate-100 rounded-2xl text-slate-600 text-2xl font-black active:scale-90">-</button>
+            <span id="displayCount" class="text-6xl font-black text-blue-600 w-24">10</span>
+            <button onclick="adjustCount(1)" class="w-14 h-14 bg-slate-100 rounded-2xl text-slate-600 text-2xl font-black active:scale-90">+</button>
         </div>
         <input type="hidden" id="groupUID">
         <div class="flex gap-3">
-            <button onclick="closeGroupModal()" class="flex-1 py-4 bg-slate-100 rounded-2xl font-bold text-slate-500">取消</button>
-            <button onclick="confirmGroupAttendance()" class="flex-1 py-4 bg-blue-600 rounded-2xl font-bold text-white shadow-xl">確認報到</button>
+            <button onclick="closeGroupModal()" class="flex-1 py-4 bg-slate-100 rounded-2xl font-bold text-slate-500 text-lg">取消</button>
+            <button onclick="confirmGroupAttendance()" class="flex-1 py-4 bg-blue-600 rounded-2xl font-bold text-white shadow-xl text-lg">確認</button>
         </div>
     </div>
 </div>
@@ -154,14 +170,14 @@
     const CONFIG = {
         scriptUrl: 'https://script.google.com/macros/s/AKfycbx5RwtQbE1kRran4GDXTh2M5ZLojNhzL-mAP32OO_Aa5-6ek4gHPYERFqjmVjJa9LH7/exec',
         liffId: '2008940815-C8JZBiJj',
-        cacheKey: 'v_data_v71_final'
+        cacheKey: 'v_data_v72_stable'
     };
 
     let allData = [];
     let dynamicLabels = {};
     let editingUID = '';
     let currentTab = 'list';
-    let operatorName = '未知操作者';
+    let operatorName = '未知櫃檯';
     let tempGroupCount = 1;
 
     window.onload = async () => {
@@ -181,17 +197,30 @@
         }
     }
 
-    async function refreshData() {
+    // 強制更新快取按鈕邏輯
+    function forceRefresh() {
+        localStorage.removeItem(CONFIG.cacheKey);
+        const icon = document.querySelector('.fa-cloud-arrow-down');
+        icon.classList.add('fa-spin');
+        refreshData(true).then(() => {
+            icon.classList.remove('fa-spin');
+            showToast('雲端資料已同步');
+        });
+    }
+
+    async function refreshData(force = false) {
+        if (!force) document.getElementById('conn-dot').className = "w-2 h-2 rounded-full bg-yellow-400 animate-pulse";
         try {
             const res = await fetch(`${CONFIG.scriptUrl}?action=getVolunteers&_=${Date.now()}`);
             const json = await res.json();
             if (json.status === 'success') {
                 allData = json.data; dynamicLabels = json.labels;
                 localStorage.setItem(CONFIG.cacheKey, JSON.stringify({data: allData, labels: dynamicLabels}));
+                document.getElementById('conn-dot').className = "w-2 h-2 rounded-full bg-green-500";
                 setupSelectors(); filterData();
                 if(currentTab === 'stats') loadStats();
             }
-        } catch (e) {}
+        } catch (e) { document.getElementById('conn-dot').className = "w-2 h-2 rounded-full bg-red-500"; }
     }
 
     function switchTab(tab) {
@@ -211,8 +240,15 @@
             const json = await res.json();
             const date = document.getElementById('dateSelect').value;
             const isDay19 = date.includes('02/19');
-            document.getElementById('sumPresent').innerText = isDay19 ? json.summary.p19 : json.summary.p20;
-            document.getElementById('sumTotal').innerText = isDay19 ? json.summary.t19 : json.summary.t20;
+            
+            const t = isDay19 ? json.summary.t19 : json.summary.t20;
+            const p = isDay19 ? json.summary.p19 : json.summary.p20;
+            const rate = t > 0 ? ((p / t) * 100).toFixed(1) : "0.0";
+            
+            document.getElementById('sumPresent').innerText = p;
+            document.getElementById('sumTotal').innerText = t;
+            document.getElementById('totalRateDisplay').innerHTML = `${rate}<span class="text-3xl ml-1">%</span>`;
+            
             renderStats(json.groups, isDay19);
         } catch (e) { container.innerHTML = '統計載入失敗'; }
     }
@@ -273,6 +309,7 @@
         }
     }
 
+    // ... (其餘函式 setupSelectors, filterData, renderList 等保持不變，維持既有功能)
     function setupSelectors() {
         const gs = [...new Set(allData.map(v => v.mainGroup).filter(Boolean))];
         const gSel = document.getElementById('groupSelect');
@@ -304,13 +341,12 @@
         if(!data.length) { container.innerHTML = '<div class="py-20 text-center text-slate-300 font-black italic">無符合名單</div>'; return; }
         container.innerHTML = data.map(v => {
             const isEligible = isDay19 ? v.lunch19 : v.lunch20;
-            const regState = isDay19 ? v.present19 : v.present20; // 字串: "是", "是 (9人)", "請假", "否"
+            const regState = isDay19 ? v.present19 : v.present20; 
             
             const isChecked = regState && regState.startsWith("是");
             const isLeave = regState === "請假";
             const isGray = (!isEligible && !isChecked && !isLeave);
             
-            // 處理團體人數顯示
             let nameDisplay = v.name;
             if (isChecked && regState.includes('人')) {
                 const count = regState.match(/\((\d+)人\)/)[1];
@@ -318,7 +354,6 @@
             } else if (isLeave) {
                 nameDisplay += ' (請假)';
             } else {
-                // 未報到時，若應到人數 > 1 (團體)，顯示應到標籤
                 const match = v.name.match(/等(\d+)人/);
                 if (match) nameDisplay += ` <span class="text-sm bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full ml-1">應到${match[1]}</span>`;
             }
@@ -338,32 +373,21 @@
         }).join('');
     }
 
-    // 處理報到點擊邏輯
     function handleCheck(uid, targetStatus) {
-        if (targetStatus === '否') {
-            // 取消報到，直接執行
-            handleAttendance(uid, '否');
-            return;
-        }
-
+        if (targetStatus === '否') { handleAttendance(uid, '否'); return; }
         const v = allData.find(x => x.uid === uid);
         const match = v.name.match(/等(\d+)人/);
-        
-        // 偵測是否為團體報名
         if (match) {
-            // 彈出輸入視窗
             editingUID = uid;
             tempGroupCount = parseInt(match[1]);
             document.getElementById('groupUID').value = uid;
             document.getElementById('displayCount').innerText = tempGroupCount;
             document.getElementById('groupCountModal').classList.remove('hidden');
         } else {
-            // 一般個人報到
             handleAttendance(uid, '是');
         }
     }
 
-    // 團體報到確認
     function adjustCount(delta) {
         tempGroupCount += delta;
         if (tempGroupCount < 1) tempGroupCount = 1;
@@ -376,47 +400,20 @@
         closeGroupModal();
     }
 
-    function closeGroupModal() {
-        document.getElementById('groupCountModal').classList.add('hidden');
-    }
+    function closeGroupModal() { document.getElementById('groupCountModal').classList.add('hidden'); }
 
-    // 核心報到執行
     async function handleAttendance(uid, status, actualCount = 0) {
         const date = document.getElementById('dateSelect').value;
         const v = allData.find(x => x.uid === uid);
         const isDay19 = date.includes('02/19');
-        
-        // 預測狀態字串
         let statusStr = status;
         if (status === '是' && actualCount > 0) statusStr = `是 (${actualCount}人)`;
-
-        // 更新本地快取 (Optimistic UI)
-        if (isDay19) { 
-            v.present19 = statusStr; 
-            if(status.startsWith('是') && v.lunch20) v.present20 = statusStr; 
-        } else { 
-            v.present20 = statusStr; 
-        }
-        
-        filterData(); // 刷新介面
-        
-        try {
-            fetch(CONFIG.scriptUrl, { 
-                method: 'POST', 
-                mode: 'no-cors', 
-                body: JSON.stringify({ 
-                    action: 'updateAttendance', 
-                    uid, 
-                    status, 
-                    date, 
-                    operator: operatorName,
-                    actualCount // 傳遞實際人數
-                }) 
-            });
-        } catch (e) {}
+        if (isDay19) { v.present19 = statusStr; if(status.startsWith('是') && v.lunch20) v.present20 = statusStr; } else { v.present20 = statusStr; }
+        filterData();
+        try { fetch(CONFIG.scriptUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateAttendance', uid, status, date, operator: operatorName, actualCount }) }); } catch (e) {}
     }
 
-    // --- 以下為既有功能 (現場報名、編輯視窗) ---
+    // 現場報名邏輯
     function openRegisterModal() {
         const groups = [...new Set(allData.map(v => v.mainGroup).filter(Boolean))];
         document.getElementById('regGroup').innerHTML = '<option value="">請選擇大組</option>' + groups.map(g => `<option value="${g}">${g}</option>`).join('');
@@ -441,7 +438,7 @@
         try {
             const res = await fetch(CONFIG.scriptUrl, { method: 'POST', body: JSON.stringify({ action: 'registerNew', newData: { name, group, subGroup, phone }, operator: operatorName }) });
             const result = await res.json();
-            if (result.status === 'success') { closeModal('regModal'); refreshData(); }
+            if (result.status === 'success') { closeModal('regModal'); refreshData(true); }
         } catch (e) {} finally { btn.disabled = false; }
     }
 
@@ -486,11 +483,16 @@
         const up = {}; ['I', 'J', 'K', 'L', 'M'].forEach(c => up[c] = document.getElementById('in-'+c).value);
         try {
             await fetch(CONFIG.scriptUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateDetails', uid: editingUID, updates: up }) });
-            refreshData(); closeModal('editModal');
+            refreshData(true); closeModal('editModal'); showToast('已儲存');
         } catch(e) {} finally { btn.disabled = false; }
     }
 
     function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+    function showToast(m) { 
+        const t = document.getElementById('toast'); 
+        t.innerText = m; t.style.opacity = '1'; 
+        setTimeout(() => t.style.opacity = '0', 2500); 
+    }
 </script>
 </body>
 </html>
