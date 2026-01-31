@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>義工報到系統 v1.3</title>
+    <title>義工報到系統 v1.5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -16,9 +16,8 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
         
-        /* 年長者友善字體設定 */
-        .text-senior-base { font-size: 1.35rem; line-height: 1.9rem; }
-        .text-senior-lg { font-size: 1.65rem; line-height: 2.3rem; }
+        .text-senior-base { font-size: 1.45rem; line-height: 2rem; }
+        .text-senior-lg { font-size: 1.8rem; line-height: 2.2rem; }
         .text-senior-sm { font-size: 1.15rem; }
         .text-senior-xs { font-size: 0.95rem; }
 
@@ -31,24 +30,17 @@
 <body class="bg-[#F1F5F9] min-h-screen text-slate-900">
 
 <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col shadow-2xl bg-white relative">
-    <!-- 頂部標題 -->
     <header class="p-6 glass sticky top-0 z-40 border-b border-slate-100 flex justify-between items-center shadow-sm">
         <div>
             <h1 class="text-2xl font-black tracking-tight text-slate-800">義工報到系統</h1>
-            <div class="flex items-center gap-1.5 mt-1">
-                <span id="conn-dot" class="w-2 h-2 rounded-full bg-green-500"></span>
-                <p id="systemStatus" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">V7.3 Optimized</p>
-            </div>
+            <p id="systemStatus" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">V7.5 Production</p>
         </div>
         <div class="flex items-center gap-2">
-            <!-- 日期切換觸發強制更新 -->
             <select id="dateSelect" onchange="handleDateChange()" class="text-sm font-black bg-blue-600 text-white rounded-full px-4 py-2 shadow-md outline-none active:scale-95 transition-all">
                 <option value="2026/02/19">2/19 初三</option>
                 <option value="2026/02/20">2/20 初四</option>
             </select>
-            <button onclick="forceRefresh()" class="w-10 h-10 bg-white text-slate-500 rounded-full shadow-md flex items-center justify-center active:scale-90 transition-all border border-slate-100" title="強制雲端更新">
-                <i class="fa-solid fa-cloud-arrow-down text-lg"></i>
-            </button>
+            <button onclick="forceRefresh()" class="w-10 h-10 bg-white text-slate-500 rounded-full shadow-md flex items-center justify-center active:scale-90 transition-all border border-slate-100"><i class="fa-solid fa-cloud-arrow-down text-lg"></i></button>
         </div>
     </header>
 
@@ -74,7 +66,6 @@
         </div>
 
         <div id="statsView" class="hidden animate-in fade-in slide-in-from-bottom-6 duration-500">
-            <!-- 總報到率儀表板 -->
             <div class="bg-white p-6 rounded-[40px] shadow-xl border border-slate-100 mb-6 relative overflow-hidden">
                 <div class="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-10 -mt-10 opacity-50"></div>
                 <div class="relative z-10 text-center mb-6">
@@ -114,14 +105,12 @@
     </nav>
 </div>
 
-<!-- 團體人數輸入 Modal -->
+<!-- Modal 結構維持不變，僅微調比例 -->
 <div id="groupCountModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 loading-overlay">
     <div class="bg-white w-full max-w-sm rounded-[32px] shadow-2xl p-8 text-center animate-in zoom-in duration-200">
-        <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fa-solid fa-users text-3xl"></i>
-        </div>
+        <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4"><i class="fa-solid fa-users text-3xl"></i></div>
         <h3 class="text-2xl font-black text-slate-800 mb-2">團體報到</h3>
-        <p class="text-slate-500 font-bold mb-6">請確認實際報到人數</p>
+        <p class="text-slate-500 font-bold mb-6">請確認實際人數</p>
         <div class="flex items-center justify-center gap-4 mb-8">
             <button onclick="adjustCount(-1)" class="w-14 h-14 bg-slate-100 rounded-2xl text-slate-600 text-2xl font-black active:scale-90">-</button>
             <span id="displayCount" class="text-6xl font-black text-blue-600 w-24">10</span>
@@ -135,14 +124,10 @@
     </div>
 </div>
 
-<!-- 編輯視窗 -->
 <div id="editModal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-4 loading-overlay">
     <div class="bg-white w-full max-w-md rounded-[40px] shadow-2xl p-8 border border-slate-100 flex flex-col max-h-[90vh]">
         <div class="flex justify-between items-center mb-6 pb-4 border-b-2 border-slate-50 shrink-0">
-            <div>
-                <h3 class="text-2xl font-black text-slate-800" id="modalName">資料編輯</h3>
-                <p class="text-xs text-slate-400 font-bold tracking-widest uppercase">Volunteer Metadata</p>
-            </div>
+            <div><h3 class="text-2xl font-black text-slate-800" id="modalName">資料編輯</h3><p class="text-xs text-slate-400 font-bold tracking-widest uppercase">Volunteer Metadata</p></div>
             <button onclick="closeModal('editModal')" class="w-12 h-12 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center active:scale-90 transition-all"><i class="fa-solid fa-xmark text-xl"></i></button>
         </div>
         <div id="editFields" class="space-y-3 overflow-y-auto pr-2 no-scrollbar flex-1"></div>
@@ -152,12 +137,11 @@
     </div>
 </div>
 
-<!-- 現場報名 -->
 <div id="regModal" class="fixed inset-0 z-50 hidden flex items-end sm:items-center justify-center p-4 loading-overlay">
     <div class="bg-white w-full max-w-md rounded-[40px] shadow-2xl p-8">
         <h3 class="text-2xl font-black text-slate-800 mb-6 text-center">現場報名</h3>
         <div class="space-y-4">
-            <input type="text" id="regName" placeholder="義工姓名" class="w-full p-5 bg-slate-50 rounded-3xl border-none outline-none text-senior-base font-black">
+            <input type="text" id="regName" placeholder="姓名" class="w-full p-5 bg-slate-50 rounded-3xl border-none outline-none text-senior-base font-black">
             <div class="space-y-3">
                 <select id="regGroup" onchange="updateRegSubGroups()" class="w-full p-5 bg-slate-50 rounded-3xl border-none outline-none text-senior-base font-bold appearance-none"><option value="">請選擇大組</option></select>
                 <select id="regSubGroup" class="w-full p-5 bg-slate-50 rounded-3xl border-none outline-none text-senior-base font-bold appearance-none"><option value="">請選擇小組</option></select>
@@ -172,65 +156,38 @@
 </div>
 
 <script>
-    const CONFIG = {
-        scriptUrl: 'https://script.google.com/macros/s/AKfycbx5RwtQbE1kRran4GDXTh2M5ZLojNhzL-mAP32OO_Aa5-6ek4gHPYERFqjmVjJa9LH7/exec',
-        liffId: '2008940815-C8JZBiJj',
-        cacheKey: 'v_data_v73_final'
-    };
-
-    let allData = [];
-    let dynamicLabels = {};
-    let editingUID = '';
-    let currentTab = 'list';
-    let operatorName = '未知操作者';
-    let tempGroupCount = 1;
+    const CONFIG = { scriptUrl: 'https://script.google.com/macros/s/AKfycbx5RwtQbE1kRran4GDXTh2M5ZLojNhzL-mAP32OO_Aa5-6ek4gHPYERFqjmVjJa9LH7/exec', liffId: '2008940815-C8JZBiJj', cacheKey: 'v_data_v75_final' };
+    let allData = []; let dynamicLabels = {}; let editingUID = ''; let currentTab = 'list'; let operatorName = '未知操作者'; let tempGroupCount = 1;
 
     window.onload = async () => {
-        try { 
-            await liff.init({ liffId: CONFIG.liffId }); 
-            if (liff.isLoggedIn()) { const profile = await liff.getProfile(); operatorName = profile.displayName; document.getElementById('systemStatus').innerText = `管理員: ${operatorName}`; }
-        } catch (e) { console.warn('LIFF 啟動受限'); }
+        try { await liff.init({ liffId: CONFIG.liffId }); if (liff.isLoggedIn()) { const p = await liff.getProfile(); operatorName = p.displayName; document.getElementById('systemStatus').innerText = `報到人員: ${operatorName}`; } } catch (e) {}
         loadCache(); refreshData();
     };
 
     function loadCache() {
         const cached = localStorage.getItem(CONFIG.cacheKey);
-        if (cached) {
-            const parsed = JSON.parse(cached);
-            allData = parsed.data; dynamicLabels = parsed.labels;
-            setupSelectors(); filterData();
-        }
+        if (cached) { const parsed = JSON.parse(cached); allData = parsed.data; dynamicLabels = parsed.labels; setupSelectors(); filterData(); }
     }
 
-    // 強制更新快取按鈕邏輯
     function forceRefresh() {
         localStorage.removeItem(CONFIG.cacheKey);
-        const icon = document.querySelector('.fa-cloud-arrow-down');
-        icon.classList.add('fa-spin');
-        refreshData(true).then(() => {
-            icon.classList.remove('fa-spin');
-            // showToast('雲端資料已同步'); // 移除 Toast 提示
-        });
+        const icon = document.querySelector('.fa-cloud-arrow-down'); icon.classList.add('fa-spin');
+        refreshData(true).then(() => { icon.classList.remove('fa-spin'); });
     }
 
-    // 日期變更處理：強制更新數據
-    function handleDateChange() {
-        refreshData(true); // 傳入 true 強制從雲端抓取新日期的數據
-    }
+    function handleDateChange() { refreshData(true); }
 
     async function refreshData(force = false) {
-        if (!force) document.getElementById('conn-dot').className = "w-2 h-2 rounded-full bg-yellow-400 animate-pulse";
         try {
             const res = await fetch(`${CONFIG.scriptUrl}?action=getVolunteers&_=${Date.now()}`);
             const json = await res.json();
             if (json.status === 'success') {
                 allData = json.data; dynamicLabels = json.labels;
                 localStorage.setItem(CONFIG.cacheKey, JSON.stringify({data: allData, labels: dynamicLabels}));
-                document.getElementById('conn-dot').className = "w-2 h-2 rounded-full bg-green-500";
                 setupSelectors(); filterData();
                 if(currentTab === 'stats') loadStats();
             }
-        } catch (e) { document.getElementById('conn-dot').className = "w-2 h-2 rounded-full bg-red-500"; }
+        } catch (e) {}
     }
 
     function switchTab(tab) {
@@ -250,15 +207,11 @@
             const json = await res.json();
             const date = document.getElementById('dateSelect').value;
             const isDay19 = date.includes('02/19');
-            
             const t = isDay19 ? json.summary.t19 : json.summary.t20;
             const p = isDay19 ? json.summary.p19 : json.summary.p20;
             const rate = t > 0 ? ((p / t) * 100).toFixed(1) : "0.0";
-            
-            document.getElementById('sumPresent').innerText = p;
-            document.getElementById('sumTotal').innerText = t;
+            document.getElementById('sumPresent').innerText = p; document.getElementById('sumTotal').innerText = t;
             document.getElementById('totalRateDisplay').innerHTML = `${rate}<span class="text-3xl ml-1">%</span>`;
-            
             renderStats(json.groups, isDay19);
         } catch (e) { container.innerHTML = '統計載入失敗'; }
     }
@@ -278,47 +231,21 @@
                 const sp = isDay19 ? sub.p19 : sub.p20;
                 if (st === 0 && sp === 0) return '';
                 const sRate = st > 0 ? ((sp / st) * 100).toFixed(0) : "100";
-                return `
-                <div class="flex justify-between items-center py-2 border-b border-slate-50 last:border-0 pl-2">
-                    <div class="text-slate-600 font-bold text-sm">${sName}</div>
-                    <div class="flex items-center gap-3">
-                        <span class="text-xs text-slate-400 font-medium">${sp}/${st}</span>
-                        <span class="text-sm font-black text-blue-500 w-10 text-right">${sRate}%</span>
-                    </div>
-                </div>`;
+                return `<div class="flex justify-between items-center py-2 border-b border-slate-50 last:border-0 pl-2"><div class="text-slate-600 font-bold text-sm">${sName}</div><div class="flex items-center gap-3"><span class="text-xs text-slate-400 font-medium">${sp}/${st}</span><span class="text-sm font-black text-blue-500 w-10 text-right">${sRate}%</span></div></div>`;
             }).join('');
 
-            return `
-            <div class="bg-white rounded-[32px] border border-slate-50 shadow-sm overflow-hidden">
-                <div class="p-5 flex justify-between items-center cursor-pointer active:bg-slate-50 transition-colors" onclick="toggleAccordion('${gName}')">
-                    <div class="flex-1">
-                        <h4 class="font-black text-senior-lg text-slate-800 tracking-tighter truncate">${gName}</h4>
-                        <div class="flex gap-5 mt-1 font-bold text-slate-400 text-senior-sm">
-                            <span>實到 ${p}</span><span>應到 ${t}</span>
-                        </div>
-                    </div>
-                    <div class="text-right flex items-center gap-2">
-                        <div class="text-3xl font-black text-blue-600 tracking-tighter">${rate}%</div>
-                        <i id="icon-${gName}" class="fa-solid fa-chevron-down text-slate-300 rotate-icon"></i>
-                    </div>
-                </div>
-                <div id="sub-${gName}" class="accordion-content bg-slate-50/50 px-5">${subsHtml}<div class="h-3"></div></div>
-            </div>`;
+            return `<div class="bg-white rounded-[32px] border border-slate-50 shadow-sm overflow-hidden"><div class="p-5 flex justify-between items-center cursor-pointer active:bg-slate-50 transition-colors" onclick="toggleAccordion('${gName}')"><div class="flex-1"><h4 class="font-black text-senior-lg text-slate-800 tracking-tighter truncate">${gName}</h4><div class="flex gap-5 mt-1 font-bold text-slate-400 text-senior-sm"><span>實到 ${p}</span><span>應到 ${t}</span></div></div><div class="text-right flex items-center gap-2"><div class="text-3xl font-black text-blue-600 tracking-tighter">${rate}%</div><i id="icon-${gName}" class="fa-solid fa-chevron-down text-slate-300 rotate-icon"></i></div></div><div id="sub-${gName}" class="accordion-content bg-slate-50/50 px-5">${subsHtml}<div class="h-3"></div></div></div>`;
         }).join('');
     }
 
     function toggleAccordion(id) {
         const content = document.getElementById(`sub-${id}`);
         const icon = document.getElementById(`icon-${id}`);
-        if (content.classList.contains('accordion-open')) {
-            content.classList.remove('accordion-open');
-            icon.classList.remove('rotate-180');
-        } else {
-            content.classList.add('accordion-open');
-            icon.classList.add('rotate-180');
-        }
+        content.classList.toggle('accordion-open');
+        icon.classList.toggle('rotate-180');
     }
 
+    // ... (其餘 setupSelectors, updateSubAndFilter, filterData 等邏輯與前版一致，僅 renderList 調整)
     function setupSelectors() {
         const gs = [...new Set(allData.map(v => v.mainGroup).filter(Boolean))];
         const gSel = document.getElementById('groupSelect');
@@ -351,7 +278,6 @@
         container.innerHTML = data.map(v => {
             const isEligible = isDay19 ? v.lunch19 : v.lunch20;
             const regState = isDay19 ? v.present19 : v.present20; 
-            
             const isChecked = regState && regState.startsWith("是");
             const isLeave = regState === "請假";
             const isGray = (!isEligible && !isChecked && !isLeave);
@@ -360,25 +286,20 @@
             if (isChecked && regState.includes('人')) {
                 const count = regState.match(/\((\d+)人\)/)[1];
                 nameDisplay += ` <span class="text-sm bg-green-100 text-green-600 px-2 py-0.5 rounded-full ml-1">實到${count}</span>`;
-            } else if (isLeave) {
-                nameDisplay += ' (請假)';
-            } else {
-                const match = v.name.match(/等(\d+)人/);
-                if (match) nameDisplay += ` <span class="text-sm bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full ml-1">應到${match[1]}</span>`;
-            }
+            } else if (isLeave) { nameDisplay += ' (請假)'; } 
+            else { const match = v.name.match(/等(\d+)人/); if (match) nameDisplay += ` <span class="text-sm bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full ml-1">應到${match[1]}</span>`; }
 
-            // 修改處：將按鈕移至姓名後方，縮小並更換圖示
             return `
             <div class="bg-white p-5 rounded-[40px] flex items-center shadow-sm border border-slate-50 transition-all ${isGray ? 'opacity-40 grayscale' : (isLeave ? 'opacity-50 italic' : '')}">
                 <div class="flex-[3] min-w-0 pr-2">
-                    <div class="flex items-center gap-2 mb-1">
+                    <div class="flex items-center gap-3 mb-1">
                         <div class="font-black text-senior-lg ${isChecked ? 'text-green-600' : (isGray ? 'text-slate-400' : 'text-slate-800')} tracking-tighter truncate leading-none">${nameDisplay}</div>
                         <button onclick="openEditModal('${v.uid}')" class="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-blue-500 active:scale-90 transition-all bg-slate-50 rounded-full border border-slate-100"><i class="fa-solid fa-pen text-sm"></i></button>
                     </div>
-                    <div class="text-xs text-slate-400 font-black uppercase tracking-widest truncate">${v.mainGroup || '--'} / ${v.subGroup || '--'}</div>
+                    <div class="text-xs text-slate-400 font-black uppercase tracking-widest truncate w-full">${v.mainGroup || '--'} / ${v.subGroup || '--'}</div>
                 </div>
                 <div class="flex-[1] flex items-center justify-end gap-2 shrink-0">
-                    <button onclick="handleAttendance('${v.uid}', '請假')" class="w-11 h-11 flex items-center justify-center text-slate-200 hover:text-orange-400 active:scale-90 transition-all" title="請假"><i class="fa-solid fa-user-slash text-xl"></i></button>
+                    <button onclick="handleAttendance('${v.uid}', '請假')" class="w-11 h-11 flex items-center justify-center text-slate-200 hover:text-orange-400 active:scale-90 transition-all"><i class="fa-solid fa-user-slash text-xl"></i></button>
                     <button onclick="handleCheck('${v.uid}', '${isChecked?'否':'是'}')" class="w-14 h-14 flex items-center justify-center ${isChecked ? 'text-green-500' : 'text-slate-200'} active:scale-125 transition-all"><i class="fa-solid fa-circle-check text-4xl"></i></button>
                 </div>
             </div>`;
@@ -390,26 +311,20 @@
         const v = allData.find(x => x.uid === uid);
         const match = v.name.match(/等(\d+)人/);
         if (match) {
-            editingUID = uid;
-            tempGroupCount = parseInt(match[1]);
-            document.getElementById('groupUID').value = uid;
-            document.getElementById('displayCount').innerText = tempGroupCount;
+            editingUID = uid; tempGroupCount = parseInt(match[1]);
+            document.getElementById('groupUID').value = uid; document.getElementById('displayCount').innerText = tempGroupCount;
             document.getElementById('groupCountModal').classList.remove('hidden');
-        } else {
-            handleAttendance(uid, '是');
-        }
+        } else { handleAttendance(uid, '是'); }
     }
 
     function adjustCount(delta) {
-        tempGroupCount += delta;
-        if (tempGroupCount < 1) tempGroupCount = 1;
+        tempGroupCount += delta; if (tempGroupCount < 1) tempGroupCount = 1;
         document.getElementById('displayCount').innerText = tempGroupCount;
     }
 
     function confirmGroupAttendance() {
         const uid = document.getElementById('groupUID').value;
-        handleAttendance(uid, '是', tempGroupCount);
-        closeGroupModal();
+        handleAttendance(uid, '是', tempGroupCount); closeGroupModal();
     }
 
     function closeGroupModal() { document.getElementById('groupCountModal').classList.add('hidden'); }
@@ -418,14 +333,13 @@
         const date = document.getElementById('dateSelect').value;
         const v = allData.find(x => x.uid === uid);
         const isDay19 = date.includes('02/19');
-        let statusStr = status;
-        if (status === '是' && actualCount > 0) statusStr = `是 (${actualCount}人)`;
+        let statusStr = status; if (status === '是' && actualCount > 0) statusStr = `是 (${actualCount}人)`;
         if (isDay19) { v.present19 = statusStr; if(status.startsWith('是') && v.lunch20) v.present20 = statusStr; } else { v.present20 = statusStr; }
         filterData();
         try { fetch(CONFIG.scriptUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateAttendance', uid, status, date, operator: operatorName, actualCount }) }); } catch (e) {}
     }
 
-    // 現場報名邏輯
+    // 現場報名 (邏輯同前)
     function openRegisterModal() {
         const groups = [...new Set(allData.map(v => v.mainGroup).filter(Boolean))];
         document.getElementById('regGroup').innerHTML = '<option value="">請選擇大組</option>' + groups.map(g => `<option value="${g}">${g}</option>`).join('');
@@ -445,8 +359,7 @@
         const subGroup = document.getElementById('regSubGroup').value;
         const phone = document.getElementById('regPhone').value.trim();
         if (!name || !group || !subGroup) return;
-        const btn = document.getElementById('regSubmitBtn');
-        btn.disabled = true;
+        const btn = document.getElementById('regSubmitBtn'); btn.disabled = true;
         try {
             const res = await fetch(CONFIG.scriptUrl, { method: 'POST', body: JSON.stringify({ action: 'registerNew', newData: { name, group, subGroup, phone }, operator: operatorName }) });
             const result = await res.json();
@@ -459,44 +372,24 @@
         const v = allData.find(x => x.uid === uid);
         document.getElementById('modalName').innerText = v.name;
         document.getElementById('editFields').innerHTML = ['I', 'J', 'K', 'L', 'M'].map(c => {
-            const val = v['col_'+c] || '';
-            const label = dynamicLabels[c] || c;
-            const isBinary = (val === '是' || val === '否' || val === '');
-            return `
-            <div class="flex items-center bg-slate-50 p-4 rounded-2xl border border-slate-100 gap-3">
-                <div class="flex-[2] min-w-0">
-                    <label class="block text-senior-xs font-black text-slate-500 uppercase tracking-tighter truncate leading-tight">${label}</label>
-                </div>
-                <div class="flex-[1] flex justify-end shrink-0">
-                    ${isBinary ? `
-                    <div class="flex gap-1.5">
-                        <button onclick="setBin('${c}','是')" id="btn-${c}-是" class="w-12 py-1.5 rounded-xl text-senior-xs font-black border-2 ${val==='是'?'bg-blue-600 text-white border-transparent shadow-sm':'bg-white text-slate-400 border-slate-200'}">是</button>
-                        <button onclick="setBin('${c}','否')" id="btn-${c}-否" class="w-12 py-1.5 rounded-xl text-senior-xs font-black border-2 ${val==='否'?'bg-blue-600 text-white border-transparent shadow-sm':'bg-white text-slate-400 border-slate-200'}">否</button>
-                        <input type="hidden" id="in-${c}" value="${val}">
-                    </div>` : `
-                    <input type="text" id="in-${c}" value="${val}" class="w-24 p-1.5 bg-white border-2 border-slate-200 rounded-xl text-senior-xs font-bold outline-none text-center">`}
-                </div>
-            </div>`;
+            const val = v['col_'+c] || ''; const label = dynamicLabels[c] || c; const isBinary = (val === '是' || val === '否' || val === '');
+            return `<div class="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100"><label class="text-senior-sm font-black text-slate-500 uppercase flex-1 truncate mr-3 leading-tight">${label}</label>${isBinary ? `<div class="flex gap-2 shrink-0"><button onclick="setBin('${c}','是')" id="btn-${c}-是" class="w-14 py-2.5 rounded-2xl text-senior-xs font-black border-2 ${val==='是'?'bg-blue-600 text-white border-transparent shadow-md':'bg-white text-slate-400 border-slate-200'}">是</button><button onclick="setBin('${c}','否')" id="btn-${c}-否" class="w-14 py-2.5 rounded-2xl text-senior-xs font-black border-2 ${val==='否'?'bg-blue-600 text-white border-transparent shadow-md':'bg-white text-slate-400 border-slate-200'}">否</button><input type="hidden" id="in-${c}" value="${val}"></div>` : `<input type="text" id="in-${c}" value="${val}" class="w-28 p-2.5 bg-white border-2 border-slate-200 rounded-2xl text-senior-xs font-black outline-none text-right shrink-0">`}</div>`;
         }).join('');
         document.getElementById('editModal').classList.remove('hidden');
     }
 
     function setBin(c, v) {
         document.getElementById('in-'+c).value = v;
-        const act = "w-12 py-1.5 rounded-xl text-senior-xs font-black bg-blue-600 text-white border-transparent shadow-sm transition-all";
-        const inact = "w-12 py-1.5 rounded-xl text-senior-xs font-black bg-white text-slate-400 border-slate-200 transition-all";
+        const act = "w-14 py-2.5 rounded-2xl text-senior-xs font-black bg-blue-600 text-white border-transparent shadow-md transition-all";
+        const inact = "w-14 py-2.5 rounded-2xl text-senior-xs font-black bg-white text-slate-400 border-slate-200 transition-all";
         document.getElementById(`btn-${c}-是`).className = (v==='是' ? act : inact);
         document.getElementById(`btn-${c}-否`).className = (v==='否' ? act : inact);
     }
 
     async function saveEdit() {
-        const btn = document.getElementById('saveBtn');
-        btn.disabled = true;
+        const btn = document.getElementById('saveBtn'); btn.disabled = true;
         const up = {}; ['I', 'J', 'K', 'L', 'M'].forEach(c => up[c] = document.getElementById('in-'+c).value);
-        try {
-            await fetch(CONFIG.scriptUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateDetails', uid: editingUID, updates: up }) });
-            refreshData(true); closeModal('editModal'); 
-        } catch(e) {} finally { btn.disabled = false; }
+        try { await fetch(CONFIG.scriptUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateDetails', uid: editingUID, updates: up }) }); refreshData(true); closeModal('editModal'); } catch(e) {} finally { btn.disabled = false; }
     }
 
     function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
